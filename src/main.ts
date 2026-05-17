@@ -32,6 +32,8 @@ const btnToggleGrid= document.getElementById('btn-toggle-grid')!;
 const btnRotCcw    = document.getElementById('btn-rot-ccw')!;
 const btnRotCw     = document.getElementById('btn-rot-cw')!;
 const vpEl         = document.getElementById('viewport')!;
+const btnHelp      = document.getElementById('btn-help')!;
+const helpBackdrop = document.getElementById('help-backdrop')!;
 const wpOpacityEl  = document.getElementById('wp-opacity') as HTMLInputElement;
 const partSelect   = document.getElementById('part-select') as HTMLSelectElement;
 const gcFilename   = document.getElementById('gcode-filename')!;
@@ -410,12 +412,29 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault();
       if (!e.repeat) startRotation(-1);
       break;
+    case '?':
+      e.preventDefault();
+      helpBackdrop.classList.contains('open') ? closeHelp() : openHelp();
+      break;
+    case 'Escape':
+      if (helpBackdrop.classList.contains('open')) { e.preventDefault(); closeHelp(); }
+      break;
   }
 });
 
 window.addEventListener('keyup', (e) => {
   if (e.key === 'r' || e.key === 'R') stopRotation();
 });
+
+// ── Help modal ───────────────────────────────────────────────────────────────
+function openHelp()  { helpBackdrop.classList.add('open');    btnHelp.classList.add('active'); }
+function closeHelp() { helpBackdrop.classList.remove('open'); btnHelp.classList.remove('active'); vpEl.focus(); }
+
+btnHelp.addEventListener('click', () =>
+  helpBackdrop.classList.contains('open') ? closeHelp() : openHelp()
+);
+document.getElementById('btn-help-close')!.addEventListener('click', closeHelp);
+helpBackdrop.addEventListener('click', (e) => { if (e.target === helpBackdrop) closeHelp(); });
 
 // ── Rotation buttons (hold to spin) ──────────────────────────────────────────
 function addHoldEvents(btn: HTMLElement, dir: 1 | -1) {

@@ -189,6 +189,75 @@
     #hole-list { display: flex; gap: 4px; flex-wrap: wrap; }
     .hole-btn { padding: 2px 6px; font-size: 10px; background: #d4ead4; border-color: #5a9a5a; color: #1a4a1a; }
     .hole-btn:hover { background: #c0dcc0; }
+
+    /* ── Help modal ── */
+    #help-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    #help-backdrop.open { display: flex; }
+    #help-modal {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 24px 28px;
+      max-width: 560px;
+      width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      position: relative;
+    }
+    #help-modal h2 {
+      font-size: 14px;
+      margin: 0 0 4px;
+      color: #0e639c;
+    }
+    #help-modal h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #888;
+      margin: 16px 0 6px;
+      border-bottom: 1px solid #e8e8e8;
+      padding-bottom: 3px;
+    }
+    #help-modal p { margin: 4px 0; }
+    #help-modal table { border-collapse: collapse; width: 100%; margin: 4px 0; }
+    #help-modal td { padding: 2px 8px 2px 0; vertical-align: top; }
+    #help-modal td:first-child {
+      white-space: nowrap;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #0050a0;
+      min-width: 110px;
+    }
+    #help-modal .swatch {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      vertical-align: middle;
+      margin-right: 4px;
+      border: 1px solid rgba(0,0,0,0.15);
+    }
+    #btn-help-close {
+      position: absolute;
+      top: 10px; right: 12px;
+      background: none;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+      color: #888;
+      padding: 0 4px;
+    }
+    #btn-help-close:hover { color: #333; background: none; }
   </style>
 </head>
 <body>
@@ -238,6 +307,9 @@
   </div>
   <div class="sep"></div>
   <div id="hole-list"></div>
+  <div style="margin-left:auto">
+    <button id="btn-help" title="Hilfe (?)">?</button>
+  </div>
 </div>
 
 <!-- Main -->
@@ -283,6 +355,75 @@
     <div class="coord-item"><span class="coord-label">Z</span><span class="coord-value" id="cz">—</span></div>
     <div class="coord-item"><span class="coord-label">A</span><span class="coord-value" id="ca">—</span></div>
     <div class="coord-item"><span class="coord-label">F</span><span class="coord-value" id="cf">—</span></div>
+  </div>
+</div>
+
+<!-- Help modal -->
+<div id="help-backdrop">
+  <div id="help-modal">
+    <button id="btn-help-close" title="Schließen">✕</button>
+    <h2>Flute Simulator</h2>
+    <p>4-Achsen-GCode-Simulator für irische Holzflöten (Rudall &amp; Rose-Typ).<br>
+    Visualisiert Fräsbahnen, Bohrungsgeometrie und Zapfenzonen im 3-D-Raum.</p>
+
+    <h3>Dateien laden</h3>
+    <table>
+      <tr><td>📂 GCode (.nc)</td><td>NC-Datei laden – oder direkt in den Viewport ziehen</td></tr>
+      <tr><td>📂 YAML</td><td>Geometrie-Datei laden: Durchmesser, Zapfen, Löcher</td></tr>
+    </table>
+
+    <h3>Kamera</h3>
+    <table>
+      <tr><td>Linke Maustaste</td><td>Orbit (drehen)</td></tr>
+      <tr><td>Rechte Maustaste / Mitteltaste</td><td>Verschieben (Pan)</td></tr>
+      <tr><td>Mausrad</td><td>Zoom</td></tr>
+      <tr><td>I / T / S / F</td><td>Ansicht: Iso · Top · Side · Front</td></tr>
+      <tr><td>R&nbsp;/&nbsp;Shift+R</td><td>Um Längsachse rollen (gedrückt halten = kontinuierlich, 4 s/Umdrehung)</td></tr>
+      <tr><td>↺ ↻ Buttons</td><td>Dasselbe per Maus</td></tr>
+    </table>
+
+    <h3>Transport</h3>
+    <table>
+      <tr><td>▶ / ⏸&nbsp;&nbsp;Leertaste</td><td>Play / Pause</td></tr>
+      <tr><td>⏮ Stop</td><td>Zurück zum Anfang</td></tr>
+      <tr><td>⏭ Schritt</td><td>Eine GCode-Zeile weiter</td></tr>
+      <tr><td>← / →</td><td>Eine Zeile zurück / vor</td></tr>
+      <tr><td>Scrubber</td><td>Direkt zu beliebiger Position springen</td></tr>
+      <tr><td>Speed</td><td>Wiedergabegeschwindigkeit (1× … Max)</td></tr>
+    </table>
+
+    <h3>Darstellung</h3>
+    <table>
+      <tr><td>Overlay-Button</td><td>YAML-Konus ein-/ausblenden</td></tr>
+      <tr><td>Gitter-Button</td><td>Hilfslinien ein-/ausblenden</td></tr>
+      <tr><td>Deckkraft-Slider</td><td>Transparenz des Konus</td></tr>
+      <tr><td>Teil-Auswahl</td><td>LH-Part · RH-Part · Footer (bei Mehrteile-YAML)</td></tr>
+    </table>
+
+    <h3>Farbschema</h3>
+    <p>
+      <span class="swatch" style="background:#2255a0"></span>Fräsbahn (geplant) &nbsp;
+      <span class="swatch" style="background:#0a2d6e"></span>Fräsbahn (gefahren) &nbsp;
+      <span class="swatch" style="background:#b0bec8"></span>Eilgang
+    </p>
+    <p>
+      <span class="swatch" style="background:#c8dff5"></span>YAML-Konus &nbsp;
+      <span class="swatch" style="background:#d4cfc8"></span>Einfacher Zylinder &nbsp;
+      <span class="swatch" style="background:#e87820"></span>Zapfenzone (Sockel)
+    </p>
+
+    <h3>Koordinatensystem</h3>
+    <p>Maschinenachsen: <b>Y</b> = Längsachse, <b>X</b> = Quer/Radial, <b>Z</b> = Tiefe, <b>A</b> = Rotation um Y.<br>
+    In der 3-D-Ansicht entspricht Maschinen-Y der Welt-X-Achse.</p>
+
+    <h3>Tastaturkürzel</h3>
+    <table>
+      <tr><td>I / T / S / F</td><td>Iso · Top · Side · Front</td></tr>
+      <tr><td>Leertaste</td><td>Play / Pause</td></tr>
+      <tr><td>← →</td><td>Zeile zurück / vor</td></tr>
+      <tr><td>R / Shift+R</td><td>Kamera rollen</td></tr>
+      <tr><td>?</td><td>Diese Hilfe öffnen / schließen</td></tr>
+    </table>
   </div>
 </div>
 
