@@ -9,7 +9,7 @@ const ARC_STEPS = 36; // subdivisions per full arc
 // worldX = machY   (longitudinal)
 // worldY = (radius(machY) + machZ) * sin(A) + machX * cos(A)
 // worldZ = (radius(machY) + machZ) * cos(A) - machX * sin(A)
-function machineToWorld(
+export function machineToWorld(
   mx: number, my: number, mz: number, aDeg: number,
   radiusFn: (y: number) => number
 ): THREE.Vector3 {

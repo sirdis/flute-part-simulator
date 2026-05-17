@@ -7,6 +7,7 @@ import { ToolPathObject, buildToolPathBuffers } from './renderer/ToolPath';
 import { ToolObject } from './renderer/Tool';
 import { Simulator } from './simulation/Simulator';
 import { GCodePanel } from './ui/GCodePanel';
+import { formatNoteName, matchPart } from './utils';
 import type { WorkpieceParams, FlutePartGeometry, SimulatorState, MachineState, MotionSegment } from './types';
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
@@ -164,17 +165,6 @@ function stopRotation() {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-// Format a raw MARK hole name into a compact musical label.
-// "c-sharp-2" → "C♯2",  "b-flat" → "B♭",  "c-2" → "C2"
-function formatNoteName(raw: string): string {
-  return raw
-    .replace(/-sharp/i, '♯')
-    .replace(/-flat/i,  '♭')
-    .replace(/-natural/i, '♮')
-    .replace(/^([a-g])/i, (_, l: string) => l.toUpperCase())
-    .replace(/-(\d+)$/, '$1');   // strip hyphen before trailing number
-}
-
 // ── Load GCode ───────────────────────────────────────────────────────────────
 function loadGCode(text: string, filename: string) {
   loadedGCodeFilename = filename;
@@ -240,12 +230,6 @@ function loadGCode(text: string, filename: string) {
 }
 
 // ── Load YAML ────────────────────────────────────────────────────────────────
-
-// Find best-matching part for a GCode filename, e.g. "0015-footer.nc" → "footer"
-function matchPart(parts: FlutePartGeometry[], filename: string): FlutePartGeometry {
-  const lower = filename.toLowerCase();
-  return parts.find(p => lower.includes(p.name.toLowerCase())) ?? parts[0];
-}
 
 function applyOverlay(part: FlutePartGeometry) {
   // ── Pull workpiece geometry from YAML ──────────────────────────────────────
