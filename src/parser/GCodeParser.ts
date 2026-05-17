@@ -128,7 +128,8 @@ export function buildMotion(lines: GCodeLine[]): ParseResult {
     if (line.mark) marks.push({ lineIndex: line.lineIndex, name: line.mark });
 
     // Extract tool diameter from comment
-    const tdMatch = line.comment.match(/tool\s+diameter\s+([\d.]+)/i);
+    // Matches: "tool diameter 3.175", "toolDiam: 1", "toolDiam=1.00"
+    const tdMatch = line.comment.match(/(?:tool\s+diameter|toolDiam)[=:\s]\s*([\d.]+)/i);
     if (tdMatch) toolDiameter = parseFloat(tdMatch[1]);
 
     const cmd = line.command;
