@@ -52,6 +52,38 @@ function cylinder(rTop: number, rBot: number, len: number): THREE.BufferGeometry
   return g;
 }
 
+// Wire-frame geometry: longitudinal lines + horizontal rings, no diagonal triangulation.
+// Geometry runs from X=0 (rTop) to X=len (rBot), same layout as cylinder().
+function wireframeCylinder(rTop: number, rBot: number, len: number, segs = 24, rings = 6): THREE.BufferGeometry {
+  const pts: THREE.Vector3[] = [];
+  // Longitudinal lines
+  for (let i = 0; i < segs; i++) {
+    const a = (i / segs) * Math.PI * 2;
+    pts.push(new THREE.Vector3(0,   rTop * Math.cos(a), rTop * Math.sin(a)));
+    pts.push(new THREE.Vector3(len, rBot * Math.cos(a), rBot * Math.sin(a)));
+  }
+  // Circular rings
+  for (let ri = 0; ri <= rings; ri++) {
+    const t = ri / rings;
+    const r = rTop * (1 - t) + rBot * t;
+    const x = t * len;
+    for (let i = 0; i < segs; i++) {
+      const a0 = (i       / segs) * Math.PI * 2;
+      const a1 = ((i + 1) / segs) * Math.PI * 2;
+      pts.push(new THREE.Vector3(x, r * Math.cos(a0), r * Math.sin(a0)));
+      pts.push(new THREE.Vector3(x, r * Math.cos(a1), r * Math.sin(a1)));
+    }
+  }
+  return new THREE.BufferGeometry().setFromPoints(pts);
+}
+
+// Material for wireframe overlay lines
+const MAT_WIRE = new THREE.LineBasicMaterial({
+  color: 0x2a7fc4,   // medium blue – clear on white, matches the blue scheme
+  transparent: true,
+  opacity: 0.7,
+});
+
 export class WorkpieceObject {
   group: THREE.Group;
   private params: WorkpieceParams;
@@ -120,6 +152,7 @@ export class FluteOverlay {
   xOffset: number;
   private opacity = 0.35;
   private socketTenon?: FluteTenonGeometry;
+  private wireframe = false;
 
   constructor(part: FlutePartGeometry, xOffset = 0, socketTenon?: FluteTenonGeometry) {
     this.part = part;
@@ -132,10 +165,16 @@ export class FluteOverlay {
   setOpacity(v: number) {
     this.opacity = v;
     this.group.traverse(obj => {
-      if (obj instanceof THREE.Mesh) {
-        (obj.material as THREE.MeshStandardMaterial).opacity = v;
+      if ((obj instanceof THREE.Mesh || obj instanceof THREE.LineSegments) && obj.material) {
+        (obj.material as THREE.MeshStandardMaterial | THREE.LineBasicMaterial).opacity = v;
       }
     });
+  }
+
+  setWireframe(on: boolean) {
+    if (this.wireframe === on) return;
+    this.wireframe = on;
+    this.rebuild();
   }
 
   private rebuild() {
@@ -150,36 +189,57 @@ export class FluteOverlay {
     const visibleLen = boreLen
       - (tenonAtZero?.length    ?? 0)
       - (tenonAtLowerEnd?.length ?? 0);
-    const lowerEnd   = this.xOffset - visibleLen;
+    const lowerEnd = this.xOffset - visibleLen;
 
     // Radius at the new lower end — interpolate along the full taper
     const taper  = boreLen > 0 ? visibleLen / boreLen : 1;
     const rLower = radiusAtZero * (1 - taper) + radiusAtEnd * taper;
 
-    const bodyMat = MAT_BODY.clone(); bodyMat.opacity = this.opacity;
-    const bodyGeo = cylinder(rLower, radiusAtZero, visibleLen);
-    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-    bodyMesh.position.x = lowerEnd;
-    this.group.add(bodyMesh);
+    if (this.wireframe) {
+      // ── Wireframe mode: body and tenons as line meshes ─────────────────────
+      const wMat = () => { const m = MAT_WIRE.clone(); m.opacity = this.opacity; return m; };
 
-    if (tenonAtZero) {
-      // Protrudes above Y=0 (into the barrel / upper joint)
-      const tenonMat = MAT_TENON.clone(); tenonMat.opacity = this.opacity;
-      const g = cylinder(tenonAtZero.radius, tenonAtZero.radius, tenonAtZero.length);
-      const m = new THREE.Mesh(g, tenonMat);
-      m.position.x = this.xOffset;
-      this.group.add(m);
+      const bodyLS = new THREE.LineSegments(wireframeCylinder(rLower, radiusAtZero, visibleLen), wMat());
+      bodyLS.position.x = lowerEnd;
+      this.group.add(bodyLS);
+
+      if (tenonAtZero) {
+        const ls = new THREE.LineSegments(
+          wireframeCylinder(tenonAtZero.radius, tenonAtZero.radius, tenonAtZero.length, 24, 2), wMat());
+        ls.position.x = this.xOffset;
+        this.group.add(ls);
+      }
+
+      if (tenonAtLowerEnd) {
+        const ls = new THREE.LineSegments(
+          wireframeCylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius, tenonAtLowerEnd.length, 24, 2), wMat());
+        ls.position.x = lowerEnd - tenonAtLowerEnd.length;
+        this.group.add(ls);
+      }
+    } else {
+      // ── Solid mode ─────────────────────────────────────────────────────────
+      const bodyMat = MAT_BODY.clone(); bodyMat.opacity = this.opacity;
+      const bodyMesh = new THREE.Mesh(cylinder(rLower, radiusAtZero, visibleLen), bodyMat);
+      bodyMesh.position.x = lowerEnd;
+      this.group.add(bodyMesh);
+
+      if (tenonAtZero) {
+        const tenonMat = MAT_TENON.clone(); tenonMat.opacity = this.opacity;
+        const m = new THREE.Mesh(cylinder(tenonAtZero.radius, tenonAtZero.radius, tenonAtZero.length), tenonMat);
+        m.position.x = this.xOffset;
+        this.group.add(m);
+      }
+
+      if (tenonAtLowerEnd) {
+        const tenonMat = MAT_TENON.clone(); tenonMat.opacity = this.opacity;
+        const m = new THREE.Mesh(
+          cylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius, tenonAtLowerEnd.length), tenonMat);
+        m.position.x = lowerEnd - tenonAtLowerEnd.length;
+        this.group.add(m);
+      }
     }
 
-    if (tenonAtLowerEnd) {
-      // Protrudes below the visible body (goes into the next part's socket)
-      const tenonMat = MAT_TENON.clone(); tenonMat.opacity = this.opacity;
-      const g = cylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius, tenonAtLowerEnd.length);
-      const m = new THREE.Mesh(g, tenonMat);
-      m.position.x = lowerEnd - tenonAtLowerEnd.length;
-      this.group.add(m);
-    }
-
+    // ── Holes (always rendered as solid discs in both modes) ─────────────────
     for (const hole of holes) {
       const hx = this.xOffset + hole.centerX;
       const aRad = (hole.alpha * Math.PI) / 180;
@@ -192,21 +252,13 @@ export class FluteOverlay {
       this.group.add(disc);
     }
 
-    // ── Socket zone: shows where the upper part's tenon is inserted ──────────
-    // The tenon from the adjacent upper part sits at the top of this bore (xOffset),
-    // extending inward by tenonLength. Highlight it in amber so the user can see
-    // if any holes fall inside the socket zone (which would weaken the joint).
+    // ── Socket zone (always rendered as solid amber cylinder) ─────────────────
     if (this.socketTenon) {
       const { length: tenonLen, radius: tenonRad } = this.socketTenon;
-      // Socket starts at xOffset (bore zero = upper end) and extends toward lower end
       const socketStart = this.xOffset - tenonLen;
-      // Use bore radius at that zone (at xOffset, i.e. radiusAtZero), padded a tiny bit
-      // to avoid z-fighting with the bore surface. We render it as a plain cylinder
-      // at the tenon's own radius (which is the tenon OD = socket ID).
       const socketMat = MAT_SOCKET.clone();
-      socketMat.opacity = Math.min(0.7, this.opacity + 0.25); // always somewhat visible
-      const socketGeo = cylinder(tenonRad, tenonRad, tenonLen);
-      const socketMesh = new THREE.Mesh(socketGeo, socketMat);
+      socketMat.opacity = Math.min(0.7, this.opacity + 0.25);
+      const socketMesh = new THREE.Mesh(cylinder(tenonRad, tenonRad, tenonLen), socketMat);
       socketMesh.position.x = socketStart;
       this.group.add(socketMesh);
     }

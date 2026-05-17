@@ -28,6 +28,7 @@ const wpDiamTop    = document.getElementById('wp-diam-top') as HTMLInputElement;
 const wpDiamBot    = document.getElementById('wp-diam-bot') as HTMLInputElement;
 const wpLength     = document.getElementById('wp-length') as HTMLInputElement;
 const btnToggleYaml= document.getElementById('btn-toggle-yaml')!;
+const btnWireframe = document.getElementById('btn-wireframe')!;
 const btnToggleGrid= document.getElementById('btn-toggle-grid')!;
 const btnRotCcw    = document.getElementById('btn-rot-ccw')!;
 const btnRotCw     = document.getElementById('btn-rot-cw')!;
@@ -57,6 +58,7 @@ document.querySelectorAll('[data-view]').forEach(btn => {
 // ── State ───────────────────────────────────────────────────────────────────
 let showYaml = true;
 let showGrid = true;
+let showWireframe = false;
 let loadedParts: FlutePartGeometry[] = [];
 let loadedGCodeFilename = '';
 let loadedSegments: MotionSegment[] = [];
@@ -289,6 +291,7 @@ function applyOverlay(part: FlutePartGeometry) {
 
   if (overlayObj) scene3d.scene.remove(overlayObj.group);
   overlayObj = new FluteOverlay(part, loadedXMax || wpParams.xOrigin + wpParams.length, socketTenon);
+  if (showWireframe) overlayObj.setWireframe(true);
   overlayObj.setOpacity(parseInt(wpOpacityEl.value) / 100);
   scene3d.scene.add(overlayObj.group);
   showYaml = true;
@@ -296,6 +299,8 @@ function applyOverlay(part: FlutePartGeometry) {
   wpObject.group.visible = false;
   btnToggleYaml.style.display = '';
   btnToggleYaml.classList.add('active');
+  btnWireframe.style.display = '';
+  btnWireframe.classList.toggle('active', showWireframe);
 }
 
 function loadYaml(text: string) {
@@ -403,6 +408,13 @@ btnToggleYaml.addEventListener('click', () => {
   if (overlayObj) overlayObj.group.visible = showYaml;
   wpObject.group.visible = !showYaml;
   btnToggleYaml.classList.toggle('active', showYaml);
+});
+
+// Toggle wireframe / solid for the YAML overlay
+btnWireframe.addEventListener('click', () => {
+  showWireframe = !showWireframe;
+  if (overlayObj) overlayObj.setWireframe(showWireframe);
+  btnWireframe.classList.toggle('active', showWireframe);
 });
 
 // Keyboard shortcuts

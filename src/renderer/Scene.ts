@@ -112,16 +112,24 @@ export class Scene {
   // This lets the user inspect the flute from different rotational angles,
   // matching the A-axis of the machine.
   rotateAroundLongAxis(angleDeg: number) {
-    const t = this.controls.target;
-    const offset = this.camera.position.clone().sub(t);
+    // Pivot = point on the workpiece axis (world X at Y=0, Z=0) with the
+    // same longitudinal position as the current orbit target.
+    // We rotate both the camera position AND the orbit target around this pivot,
+    // so the view centre rolls in place without any visual jump.
     const q = new THREE.Quaternion().setFromAxisAngle(
       new THREE.Vector3(1, 0, 0),
       (angleDeg * Math.PI) / 180
     );
-    offset.applyQuaternion(q);
-    this.camera.position.copy(t).add(offset);
+    const pivot = new THREE.Vector3(this.controls.target.x, 0, 0);
+
+    // Roll camera around workpiece axis
+    this.camera.position.sub(pivot).applyQuaternion(q).add(pivot);
     this.camera.up.applyQuaternion(q);
-    this.camera.lookAt(t.x, t.y, t.z);
+
+    // Roll the orbit target the same way (its X is unchanged; Y/Z rotate in place)
+    this.controls.target.sub(pivot).applyQuaternion(q).add(pivot);
+
+    this.camera.lookAt(this.controls.target);
     this.controls.update();
   }
 }
