@@ -62,7 +62,13 @@ export class GCodePanel {
     this.totalHeight = lines.length * this.ROW_HEIGHT;
     this.list.style.height = this.totalHeight + 'px';
     this.list.style.position = 'relative';
-    this.updateVisible();
+    // Reset cached range so the guard in updateVisible() never skips the
+    // initial render (happens when a second file is loaded at scrollTop=0).
+    this.visibleStart = -1;
+    this.visibleEnd = -1;
+    // Defer one frame so the browser has finished layout and clientHeight is
+    // the real panel height, not 0.
+    requestAnimationFrame(() => this.updateVisible());
   }
 
   private updateVisible() {
