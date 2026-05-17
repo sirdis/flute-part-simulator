@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flute Simulator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      background: #1a1a1a;
+      color: #d4d4d4;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: #252526;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    #toolbar .group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    #toolbar .sep { width: 1px; height: 20px; background: #444; margin: 0 4px; }
+    #toolbar label { color: #888; font-size: 11px; }
+    button, select {
+      background: #3c3c3c;
+      color: #d4d4d4;
+      border: 1px solid #555;
+      border-radius: 3px;
+      padding: 3px 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+    }
+    button:hover { background: #4a4a4a; }
+    button.active { background: #0e639c; border-color: #1177bb; }
+    input[type=range] { width: 80px; accent-color: #0e639c; }
+    input[type=number] { width: 64px; background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; font-family: inherit; font-size: 11px; }
+
+    /* ── Main area ── */
+    #main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Viewport ── */
+    #viewport {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #111;
+    }
+    #viewport canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    #overlay-info {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0,0,0,0.6);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      line-height: 1.6;
+      pointer-events: none;
+    }
+    #overlay-info span { color: #4ec9b0; }
+
+    /* ── GCode panel ── */
+    #gcode-panel {
+      width: 340px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid #333;
+      background: #1e1e1e;
+      overflow: hidden;
+    }
+    #gcode-panel-header {
+      padding: 6px 10px;
+      background: #252526;
+      border-bottom: 1px solid #333;
+      font-size: 11px;
+      color: #888;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    #gcode-search {
+      background: #3c3c3c;
+      border: 1px solid #555;
+      color: #d4d4d4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      width: 120px;
+      font-family: inherit;
+    }
+    #gcode-list-container {
+      flex: 1;
+      overflow-y: scroll;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: #444 #1e1e1e;
+    }
+    #gcode-list {
+      font-size: 11px;
+      line-height: 1.5;
+      white-space: pre;
+    }
+    .gc-line {
+      display: flex;
+      cursor: default;
+      padding: 0 4px;
+    }
+    .gc-line:hover { background: #2a2d2e; }
+    .gc-line.current { background: #094771; }
+    .gc-line.mark { background: #1e3a1e; }
+    .gc-lnum { color: #555; width: 44px; flex-shrink: 0; text-align: right; padding-right: 8px; user-select: none; }
+    .gc-text { color: #9cdcfe; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .gc-text .kw { color: #569cd6; }
+    .gc-text .num { color: #b5cea8; }
+    .gc-text .cmt { color: #6a9955; }
+    .gc-text .mark-kw { color: #dcdcaa; }
+
+    /* ── Bottom bar ── */
+    #bottom-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 12px;
+      background: #252526;
+      border-top: 1px solid #333;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    #transport {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    #transport button { padding: 3px 10px; font-size: 14px; }
+    #scrubber { flex: 1; min-width: 100px; max-width: 300px; accent-color: #0e639c; }
+    #coord-panel {
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      margin-left: auto;
+    }
+    .coord-item { display: flex; gap: 4px; }
+    .coord-label { color: #888; }
+    .coord-value { color: #4ec9b0; font-variant-numeric: tabular-nums; min-width: 52px; }
+    #progress-info { color: #888; font-size: 11px; white-space: nowrap; }
+
+    /* ── Drop overlay ── */
+    #drop-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(14,99,156,0.3);
+      border: 2px dashed #1177bb;
+      z-index: 100;
+      pointer-events: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #4ec9b0;
+    }
+    #drop-overlay.active { display: flex; }
+
+    /* ── Hole list ── */
+    #hole-list { display: flex; gap: 4px; flex-wrap: wrap; }
+    .hole-btn { padding: 2px 6px; font-size: 10px; background: #2d4a2d; border-color: #3a6a3a; color: #9cdcfe; }
+    .hole-btn:hover { background: #3a5a3a; }
+  </style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <div class="group">
+    <button id="btn-load-nc">📂 GCode (.nc)</button>
+    <button id="btn-load-yaml">📂 YAML (optional)</button>
+    <input type="file" id="file-nc" accept=".nc,.gcode,.txt" style="display:none">
+    <input type="file" id="file-yaml" accept=".yaml,.yml" style="display:none">
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <label>Ansicht:</label>
+    <button data-view="iso" title="Isometrisch (I)">Iso</button>
+    <button data-view="top" title="Draufsicht (T)">Top</button>
+    <button data-view="side" title="Seite (S)">Side</button>
+    <button data-view="front" title="Stirnseite (F)">Front</button>
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <label>Werkzeug ∅:</label>
+    <input type="number" id="tool-diam" value="3.175" step="0.1" min="0.1" max="20" title="Werkzeugdurchmesser mm">
+    <label>mm</label>
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <label>Werkstück ∅ oben/unten mm, L mm:</label>
+    <input type="number" id="wp-diam-top" value="29" step="0.5" min="1" max="100" title="Oberer Durchmesser">
+    <input type="number" id="wp-diam-bot" value="27" step="0.5" min="1" max="100" title="Unterer Durchmesser">
+    <input type="number" id="wp-length" value="240" step="5" min="10" max="1000" title="Länge mm">
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <button id="btn-toggle-yaml" title="YAML-Overlay ein/aus" style="display:none">Overlay</button>
+    <button id="btn-toggle-grid" class="active">Gitter</button>
+    <button id="btn-toggle-toolpath-mode" class="active" title="Fräsbahn: Maschinenframe / Werkstückframe">Werkstückframe</button>
+  </div>
+  <div class="sep"></div>
+  <div id="hole-list"></div>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <div id="viewport">
+    <div id="drop-overlay">GCode (.nc) oder YAML (.yaml) hier ablegen</div>
+    <div id="overlay-info">
+      <div>A: <span id="info-a">0.00°</span></div>
+      <div id="info-hole" style="display:none">Loch: <span id="info-hole-name">—</span></div>
+    </div>
+  </div>
+  <div id="gcode-panel">
+    <div id="gcode-panel-header">
+      <span id="gcode-filename">Kein GCode geladen</span>
+      <input type="text" id="gcode-search" placeholder="Suchen…" />
+    </div>
+    <div id="gcode-list-container">
+      <div id="gcode-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom bar -->
+<div id="bottom-bar">
+  <div id="transport">
+    <button id="btn-stop" title="Stop">⏮</button>
+    <button id="btn-play" title="Play/Pause">▶</button>
+    <button id="btn-step" title="Einzelschritt">⏭</button>
+  </div>
+  <label>Speed:</label>
+  <select id="speed-select">
+    <option value="1">1×</option>
+    <option value="5">5×</option>
+    <option value="10" selected>10×</option>
+    <option value="50">50×</option>
+    <option value="0">Max</option>
+  </select>
+  <input type="range" id="scrubber" min="0" max="100" value="0" title="Position">
+  <span id="progress-info">—</span>
+  <div id="coord-panel">
+    <div class="coord-item"><span class="coord-label">X</span><span class="coord-value" id="cx">—</span></div>
+    <div class="coord-item"><span class="coord-label">Y</span><span class="coord-value" id="cy">—</span></div>
+    <div class="coord-item"><span class="coord-label">Z</span><span class="coord-value" id="cz">—</span></div>
+    <div class="coord-item"><span class="coord-label">A</span><span class="coord-value" id="ca">—</span></div>
+    <div class="coord-item"><span class="coord-label">F</span><span class="coord-value" id="cf">—</span></div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

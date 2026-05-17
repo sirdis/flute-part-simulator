@@ -1,0 +1,291 @@
+---
+serialNo: 0015
+toolDiam: 1
+rpm: 11000
+#plotStep: 0.5
+#radialStep: 0.5
+#vulcanRadialStep: 0.1
+minWallThickness: 0.4
+simulation: 0
+fakeAlpha: 0
+renderCirclesAsLines: 0
+safetyBetweenHoleAndTenon: 3
+parts:
+  ####################################################################
+  # Left Hand Part
+  ####################################################################
+  - name: lh-part
+    maxBoreDiam: 19.00
+    minBoreDiam: 15.14
+    boreLen: 208.18
+    tubeDiamAtBoreZero: 28.90
+    tubeDiamAtBoreLowerEnd: 26.53
+    tenonAtZero:
+      length: 27.40
+      diam: 23.63
+      cork:
+        relativeDepth: 0.95
+        length: 16
+    tenonAtLowerEnd:
+      length: 19.95
+      diam: 20.24
+      cork:
+        relativeDepth: 0.95
+        length: 12
+    ringAtZero:
+    ringAtLowerEnd:
+    holes:
+      # ############# c-sharp-2 hole ########################################
+      - name: c-sharp-2        # name of the hole.
+        diamX: 8.47            # diameter of the hole in the x direction
+        centerX: -49.85        # x coordinate of the center of the hole
+        enabled: true          # tell programm to create gcode for this hole
+        mode: "finger"         # vulcan or level or finger
+        tubeDiamAtHole: 28.48  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 0               # angle of the hole on flute tube
+      # ############# c-2 hole ###############################################
+      - name: c-2              # name of the hole.
+        diamX: 7.25            # diameter of the hole in the x direction
+        centerX: -69.83        # x coordinate of the center of the hole
+        enabled: true         # tell programm to create gcode for this hole
+        mode: "vulcan"         # vulcan or level or finger
+        tubeDiamAtHole: 28.32  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 80              # angle of the hole on flute tube
+        widthVulcan: 1.4       # width of the vulcan for a key hole
+        heightVulcan: 1.8      # height of the vulcan for a key hole
+        vulcanEdgeWidth: 0.3   # width of the vulcan edge for a vulcan
+        keyHoles: # this is where the key posts are located, relative to center of hole
+          keyAngleFromFluteAxis: 180
+          distanceFromToneHoleToKeyAxis: 45.40
+          distanceFromSpringSupportToKeyAxis: 5
+          distanceFromBearingToKeyAxis: 6
+          keyAxisLength: 9
+          keyOffsetFromAxisCenter: 0
+          keyPostTubeDiam: 27.63
+          keyPostHoleDiam: 4.90
+          keyPostHoleDepth: 4.2
+          springSupportHoleDiam: 6
+          springSupportHoleDepth: 3
+          distanceFromToneHoleToKeyBearing: 12
+          bearingHoleDiam: 4.90
+          bearingHoleDepth: 4.2
+      # ############# b hole ###################################################
+      - name: b                # name of the hole.
+        diamX: 8.63            # diameter of the hole in the x direction
+        centerX: -86.98        # x coordinate of the center of the hole
+        enabled: true          # tell programm to create gcode for this hole
+        mode: "finger"         # vulcan or level or finger
+        tubeDiamAtHole: 28.10  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 0               # angle of the hole on flute tube
+      # ############# b-flat hole ###############################################
+      - name: b-flat           # name of the hole.
+        diamX: 7.00            # diameter of the hole in the x direction
+        centerX: -106.63       # x coordinate of the center of the hole
+        enabled: true         # tell programm to create gcode for this hole
+        mode: "vulcan"         # vulcan or level or finger
+        tubeDiamAtHole: 27.78  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 129             # angle of the hole on flute tube
+        widthVulcan: 1.4       # width of the vulcan for a key hole
+        heightVulcan: 1.8      # height of the vulcan for a key hole
+        vulcanEdgeWidth: 0.3   # width of the vulcan edge for a vulcan
+        keyHoles: # this is where the key posts are located, relative to center of hole
+          keyAngleFromFluteAxis: 0
+          distanceFromToneHoleToKeyAxis: 13.8
+          distanceFromSpringSupportToKeyAxis: 6
+          keyAxisLength: 9
+          keyOffsetFromAxisCenter: 0
+          keyPostTubeDiam: 28.07
+          keyPostHoleDiam: 4.90
+          keyPostHoleDepth: 4.2
+          springSupportHoleDiam: 6
+          springSupportHoleDepth: 3
+      # ############# a hole #################################################
+      - name: a                # name of the hole.
+        diamX: 7.80            # diameter of the hole in the x direction
+        centerX: -123.83       # x coordinate of the center of the hole
+        enabled: true          # tell programm to create gcode for this hole
+        mode: "finger"         # vulcan or level or finger
+        tubeDiamAtHole: 27.38  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: -12             # angle of the hole on flute tube
+      # ############# g-sharp hole ############################################
+      - name: g-sharp          # name of the hole.
+        diamX: 5.80            # diameter of the hole in the x direction
+        centerX: -145.94       # x coordinate of the center of the hole
+        enabled: true         # tell programm to create gcode for this hole
+        mode: "vulcan"         # vulcan or level or finger
+        tubeDiamAtHole: 26.99  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 49              # angle of the hole on flute tube
+        widthVulcan: 1.4       # width of the vulcan for a key hole
+        heightVulcan: 1.8      # height of the vulcan for a key hole
+        vulcanEdgeWidth: 0.3   # width of the vulcan edge for a vulcan
+#        keyHoles: # this is where the key posts are located, relative to center of hole
+#         keyAngleFromFluteAxis: 90
+#         distanceFromToneHoleToKeyAxis: 10
+#         distanceFromSpringSupportToKeyAxis: 6
+#         keyAxisLength: 14
+#         keyOffsetFromAxisCenter: 0
+#         keyPostTubeDiam: 27.60
+#         keyPostHoleDiam: 4.90
+#         keyPostHoleDepth: 4.2
+#         springSupportHoleDiam: 6
+#         springSupportHoleDepth: 3
+  ####################################################################
+  # Right Hand Part
+  ####################################################################
+  - name: rh-part
+    enabled: true
+    maxBoreDiam: 15.07
+    minBoreDiam: 12.86
+    boreLen: 102.50
+    tubeDiamAtBoreZero: 26.40
+    tubeDiamAtBoreLowerEnd: 24.96
+    tenonAtZero:
+    tenonAtLowerEnd:
+      length: 16.55
+      diam: 18.67
+      cork:
+        relativeDepth: 0.95
+        length: 10
+    ringAtZero:
+      length: 4
+      diam: 26.40
+    ringAtLowerEnd:
+    holes:
+      # ############# g hole #################################################
+      - name: g                # name of the hole.
+        diamX: 10.50           # diameter of the hole in the x direction
+        centerX: -28.94        # x coordinate of the center of the hole
+        enabled: true          # tell programm to create gcode for this hole
+        mode: "finger"         # vulcan or level or finger
+        tubeDiamAtHole: 26.16  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 0               # angle of the hole on flute tube
+      # ############# f-sharp hole ###########################################
+      - name: f-sharp          # name of the hole.
+        diamX: 11.59           # diameter of the hole in the x direction
+        centerX: -57.34        # x coordinate of the center of the hole
+        enabled: true          # tell programm to create gcode for this hole
+        mode: "finger"         # vulcan or level or finger
+        tubeDiamAtHole: 25.87  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 0               # angle of the hole on flute tube
+      # ############# f front hole ###########################################
+      - name: f-front          # name of the hole. we have two f holes, so this is one of them
+        diamX: 9.40            # diameter of the hole in the x direction
+        centerX: -78.95        # x coordinate of the center of the hole
+        enabled: true         # tell programm to create gcode for this hole
+        mode: "vulcan"         # vulcan or level or finger
+        tubeDiamAtHole: 25.43  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 170             # angle of the hole on flute tube
+        widthVulcan: 1.4       # width of the vulcan for a key hole
+        heightVulcan: 1.8      # height of the vulcan for a key hole
+        vulcanEdgeWidth: 0.3   # width of the vulcan edge for a vulcan
+        keyHoles: # this is where the key posts are located, relative to center of hole
+          keyAngleFromFluteAxis: 90
+          distanceFromToneHoleToKeyAxis: 14.5
+          distanceFromSpringSupportToKeyAxis: 2
+          keyAxisLength: 14
+          keyOffsetFromAxisCenter: 0
+          keyPostTubeDiam: 25.43
+          keyPostHoleDiam: 4.90
+          keyPostHoleDepth: 4.2
+          springSupportHoleDiam: 6
+          springSupportHoleDepth: 3
+      # ############# f back hole ###########################################
+      - name: f-back          # name of the hole. we have two f holes, so this is one of them
+        diamX: 9.35          # diameter of the hole in the x direction
+        centerX: -78.95       # x coordinate of the center of the hole
+        enabled: true        # tell programm to create gcode for this hole
+        mode: "vulcan"        # vulcan or level or finger
+        tubeDiamAtHole: 25.43 # diameter of the flute tube at the hole
+        diamY: -1             # diameter of the hole in the y direction
+        alpha: -89            # angle of the hole on flute tube
+        widthVulcan: 1.4      # width of the vulcan for a key hole
+        heightVulcan: 1.8     # height of the vulcan for a key hole
+        vulcanEdgeWidth: 0.3  # width of the vulcan edge for a vulcan
+        keyHoles: # this is where the key posts are located, relative to center of hole
+          keyAngleFromFluteAxis: 0
+          distanceFromToneHoleToKeyAxis: 42
+          distanceFromSpringSupportToKeyAxis: 6
+          keyAxisLength: 9
+          keyOffsetFromAxisCenter: 0
+          keyPostTubeDiam: 25.97
+          keyPostHoleDiam: 4.90
+          keyPostHoleDepth: 4.2
+          springSupportHoleDiam: 6
+          springSupportHoleDepth: 3
+          distanceFromToneHoleToKeyBearing: 12
+          bearingHoleDiam: 4.90
+          bearingHoleDepth: 4.2
+      # ############# e hole #################################################
+      - name: e                # name of the hole.
+        diamX: 8.08            # diameter of the hole in the x direction
+        centerX: -96.20        # x coordinate of the center of the hole
+        enabled: true          # tell programm to create gcode for this hole
+        mode: "finger"         # vulcan or level or finger
+        tubeDiamAtHole: 25.18  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 10              # angle of the hole on flute tube
+  ####################################################################
+  # Footer
+  ####################################################################
+  - name: footer
+    enabled: true
+    maxBoreDiam: 12.60
+    minBoreDiam: 10.80
+    boreLen: 123.60
+    tubeDiamAtBoreZero: 25.00
+    tubeDiamAtBoreLowerEnd: 22.50
+    tenonAtZero:
+    tenonAtLowerEnd:
+    ringAtZero: 25.00
+    ringAtLowerEnd:
+    holes:
+      # ############# d sharp hole ###########################################
+      - name: d-sharp          # name of the hole. we have two f holes, so this is one of them
+        centerX: -32.32        # x coordinate of the center of the hole
+        diamX: 11.30           # diameter of the hole in the x direction
+        enabled: true          # tell programm to create gcode for this hole
+        mode: "vulcan"         # vulcan or level or finger
+        tubeDiamAtHole: 24.72  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: -49.0           # angle of the hole on flute tube
+        widthVulcan: 1.3       # width of the vulcan for a key hole
+        heightVulcan: 1.9      # height of the vulcan for a key hole
+        vulcanEdgeWidth: 0.3   # width of the vulcan edge for a vulcan
+        #keyHoles: # this is where the key posts are located, relative to center of hole
+        #  keyAngleFromFluteAxis: 0
+        #  distanceFromToneHoleToKeyAxis: 11.5
+        #  distanceFromSpringSupportToKeyAxis: 5.8
+        #  keyAxisLength: 9
+        #  keyOffsetFromAxisCenter: 0
+        #  keyPostTubeDiam: 24.75
+        #  keyPostHoleDiam: 4.90
+        #  keyPostHoleDepth: 4.6
+        #  springSupportHoleDiam: 6
+        #  springSupportHoleDepth: 2
+      # ############# d hole #################################################
+      - name: d                # name of the hole.
+        diamX: 12.96           # diameter of the hole in the x direction
+        centerX: -60.14        # x coordinate of the center of the hole
+        enabled: true          # tell programm to create gcode for this hole
+        mode: "finger"         # vulcan or level or finger
+        tubeDiamAtHole: 24.39  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 0               # angle of the hole on flute tube
+      # ############# c sharp hole ###########################################
+      - name: c-sharp-1        # name of the hole. we have two f holes, so this is one of them
+        diamX: 9.20            # diameter of the hole in the x direction
+        centerX: -93.61        # x coordinate of the center of the hole
+        enabled: true          # tell programm to create gcode for this hole
+        mode: "finger"         # vulcan or level or finger
+        tubeDiamAtHole: 23.48  # diameter of the flute tube at the hole
+        diamY: -1              # diameter of the hole in the y direction
+        alpha: 0               # angle of the hole on flute tube
