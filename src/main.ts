@@ -28,6 +28,7 @@ const wpDiamBot    = document.getElementById('wp-diam-bot') as HTMLInputElement;
 const wpLength     = document.getElementById('wp-length') as HTMLInputElement;
 const btnToggleYaml= document.getElementById('btn-toggle-yaml')!;
 const btnToggleGrid= document.getElementById('btn-toggle-grid')!;
+const wpOpacityEl  = document.getElementById('wp-opacity') as HTMLInputElement;
 const gcFilename   = document.getElementById('gcode-filename')!;
 const holeList     = document.getElementById('hole-list')!;
 const dropOverlay  = document.getElementById('drop-overlay')!;
@@ -282,6 +283,13 @@ btnToggleGrid.addEventListener('click', () => {
   showGrid = !showGrid;
   gridObj.visible = showGrid;
   btnToggleGrid.classList.toggle('active', showGrid);
+});
+
+// Workpiece / overlay opacity slider
+wpOpacityEl.addEventListener('input', () => {
+  const v = parseInt(wpOpacityEl.value) / 100;
+  wpObject.setOpacity(v);
+  if (overlayObj) overlayObj.setOpacity(v);
 });
 
 // Toggle YAML overlay (cylinder follows inversely: hidden when overlay is shown)

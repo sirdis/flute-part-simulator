@@ -2,25 +2,25 @@ import * as THREE from 'three';
 import type { WorkpieceParams, FlutePartGeometry } from '../types';
 
 const MAT_BODY = new THREE.MeshStandardMaterial({
-  color: 0x8B6914,
+  color: 0xc8dff5,   // very light blue
   transparent: true,
-  opacity: 0.35,
+  opacity: 0.55,
   side: THREE.DoubleSide,
   depthWrite: false,
 });
 
 const MAT_TENON = new THREE.MeshStandardMaterial({
-  color: 0xa07820,
+  color: 0xb0cfe8,   // slightly deeper light blue for tenons
   transparent: true,
-  opacity: 0.35,
+  opacity: 0.55,
   side: THREE.DoubleSide,
   depthWrite: false,
 });
 
 const MAT_HOLE = new THREE.MeshStandardMaterial({
-  color: 0x4ec9b0,
+  color: 0x3a80c8,   // medium blue – matches the blue scheme
   transparent: true,
-  opacity: 0.7,
+  opacity: 0.85,
   side: THREE.DoubleSide,
 });
 
@@ -35,11 +35,21 @@ function cylinder(rTop: number, rBot: number, len: number): THREE.BufferGeometry
 export class WorkpieceObject {
   group: THREE.Group;
   private params: WorkpieceParams;
+  private opacity = 0.35;
 
   constructor(params: WorkpieceParams) {
     this.params = params;
     this.group = new THREE.Group();
     this.rebuild();
+  }
+
+  setOpacity(v: number) {
+    this.opacity = v;
+    this.group.traverse(obj => {
+      if (obj instanceof THREE.Mesh) {
+        (obj.material as THREE.MeshStandardMaterial).opacity = v;
+      }
+    });
   }
 
   private rebuild() {
@@ -52,7 +62,8 @@ export class WorkpieceObject {
     // xOrigin+length = world X of upper end (large radius, machine Y max)
     // cylinder(firstArg, secondArg): firstArg is at world X=0, secondArg at world X=length
     const geo = cylinder(rBot, rTop, length);
-    const mesh = new THREE.Mesh(geo, MAT_BODY.clone());
+    const bodyMat = MAT_BODY.clone(); bodyMat.opacity = this.opacity;
+    const mesh = new THREE.Mesh(geo, bodyMat);
     mesh.position.x = xOrigin;
     this.group.add(mesh);
 
@@ -60,7 +71,7 @@ export class WorkpieceObject {
     const wireGeo = cylinder(rBot, rTop, length);
     const wire = new THREE.LineSegments(
       new THREE.WireframeGeometry(wireGeo),
-      new THREE.LineBasicMaterial({ color: 0x8B6914, opacity: 0.3, transparent: true })
+      new THREE.LineBasicMaterial({ color: 0x7aafd4, opacity: 0.4, transparent: true })
     );
     wire.position.x = xOrigin;
     this.group.add(wire);
@@ -87,6 +98,7 @@ export class FluteOverlay {
   group: THREE.Group;
   private part: FlutePartGeometry;
   xOffset: number;
+  private opacity = 0.35;
 
   constructor(part: FlutePartGeometry, xOffset = 0) {
     this.part = part;
@@ -95,45 +107,49 @@ export class FluteOverlay {
     this.rebuild();
   }
 
+  setOpacity(v: number) {
+    this.opacity = v;
+    this.group.traverse(obj => {
+      if (obj instanceof THREE.Mesh) {
+        (obj.material as THREE.MeshStandardMaterial).opacity = v;
+      }
+    });
+  }
+
   private rebuild() {
     this.group.clear();
     const { radiusAtZero, radiusAtEnd, boreLen, tenonAtZero, tenonAtLowerEnd, holes } = this.part;
-    // xOffset = GCode X of the UPPER end of the flute (= xMax from loaded GCode).
-    // The body extends in the -X direction (toward machine home at lower X values).
     const lowerEnd = this.xOffset - boreLen;
 
-    // Main body: lower end at X=lowerEnd (small radius), upper end at X=xOffset (large radius)
+    const bodyMat = MAT_BODY.clone(); bodyMat.opacity = this.opacity;
     const bodyGeo = cylinder(radiusAtEnd, radiusAtZero, boreLen);
-    const bodyMesh = new THREE.Mesh(bodyGeo, MAT_BODY.clone());
+    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     bodyMesh.position.x = lowerEnd;
     this.group.add(bodyMesh);
 
-    // Upper tenon: at xOffset, extends in +X direction (beyond upper end)
     if (tenonAtZero) {
+      const tenonMat = MAT_TENON.clone(); tenonMat.opacity = this.opacity;
       const g = cylinder(tenonAtZero.radius, tenonAtZero.radius, tenonAtZero.length);
-      const m = new THREE.Mesh(g, MAT_TENON.clone());
+      const m = new THREE.Mesh(g, tenonMat);
       m.position.x = this.xOffset;
       this.group.add(m);
     }
 
-    // Lower tenon: at lowerEnd, extends in -X direction (below lower end of bore)
     if (tenonAtLowerEnd) {
+      const tenonMat = MAT_TENON.clone(); tenonMat.opacity = this.opacity;
       const g = cylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius, tenonAtLowerEnd.length);
-      const m = new THREE.Mesh(g, MAT_TENON.clone());
+      const m = new THREE.Mesh(g, tenonMat);
       m.position.x = lowerEnd - tenonAtLowerEnd.length;
       this.group.add(m);
     }
 
-    // Holes: centerX is negative = distance below upper end
-    // → hx = xOffset + centerX  (e.g. centerX=-49.85 → hx = xOffset-49.85)
     for (const hole of holes) {
-      const hx = this.xOffset + hole.centerX;   // centerX is negative
+      const hx = this.xOffset + hole.centerX;
       const aRad = (hole.alpha * Math.PI) / 180;
       const r = this.radiusAt(hx);
       const discGeo = new THREE.CircleGeometry(hole.diameter / 2, 32);
       const disc = new THREE.Mesh(discGeo, MAT_HOLE.clone());
       disc.position.set(hx, r * Math.sin(aRad), r * Math.cos(aRad));
-      // Orient disc normal to point radially outward from cylinder axis
       const outward = new THREE.Vector3(0, Math.sin(aRad), Math.cos(aRad));
       disc.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), outward);
       this.group.add(disc);
@@ -161,8 +177,8 @@ export function buildGrid(xMin: number, xMax: number): THREE.Object3D {
   // vertical lines in XZ plane (Y = 0, the side profile plane)
   const step = 10;
   const ext = 50;   // extent in Y and Z direction
-  const matMinor = new THREE.LineBasicMaterial({ color: 0xc8cdd2 });
-  const matMajor = new THREE.LineBasicMaterial({ color: 0xa8b0b8 });
+  const matMinor = new THREE.LineBasicMaterial({ color: 0xdde2e8 });
+  const matMajor = new THREE.LineBasicMaterial({ color: 0xbbc4cc });
 
   const minor: THREE.Vector3[] = [];
   const major: THREE.Vector3[] = [];

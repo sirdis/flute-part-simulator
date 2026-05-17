@@ -127,9 +127,9 @@ export function buildToolPathBuffers(
 }
 
 
-const MAT_RAPID = new THREE.LineBasicMaterial({ color: 0x555555 });
-const MAT_FEED  = new THREE.LineBasicMaterial({ color: 0x4ec9b0 });
-const MAT_FEED_PAST = new THREE.LineBasicMaterial({ color: 0x2a6a60 });
+const MAT_RAPID     = new THREE.LineBasicMaterial({ color: 0xb0bec8, opacity: 0.7, transparent: true });
+const MAT_FEED      = new THREE.LineBasicMaterial({ color: 0x2255a0 });   // dark blue – upcoming path
+const MAT_FEED_PAST = new THREE.LineBasicMaterial({ color: 0x0a2d6e });   // deeper blue – already cut
 
 export class ToolPathObject {
   group: THREE.Group;

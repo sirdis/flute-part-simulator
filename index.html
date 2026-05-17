@@ -63,7 +63,7 @@
       flex: 1;
       position: relative;
       overflow: hidden;
-      background: #e4e8ec;
+      background: #ffffff;
     }
     #viewport canvas { display: block; width: 100% !important; height: 100% !important; }
 
@@ -225,6 +225,8 @@
   <div class="group">
     <button id="btn-toggle-yaml" title="YAML-Overlay ein/aus" style="display:none">Overlay</button>
     <button id="btn-toggle-grid" class="active">Gitter</button>
+    <label>Deckkraft:</label>
+    <input type="range" id="wp-opacity" min="5" max="80" value="35" title="Konus-Deckkraft">
   </div>
   <div class="sep"></div>
   <div id="hole-list"></div>
