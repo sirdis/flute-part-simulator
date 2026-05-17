@@ -45,9 +45,10 @@ const dropOverlay  = document.getElementById('drop-overlay')!;
 const cx = document.getElementById('cx')!, cy = document.getElementById('cy')!;
 const cz = document.getElementById('cz')!, ca = document.getElementById('ca')!;
 const cf = document.getElementById('cf')!;
-const infoA        = document.getElementById('info-a')!;
-const infoHoleDiv  = document.getElementById('info-hole')!;
-const infoHoleName = document.getElementById('info-hole-name')!;
+const infoA          = document.getElementById('info-a')!;
+const infoHoleDiv    = document.getElementById('info-hole')!;
+const infoHoleName   = document.getElementById('info-hole-name')!;
+const paddingWarning = document.getElementById('padding-warning')!;
 
 // View buttons
 document.querySelectorAll('[data-view]').forEach(btn => {
@@ -170,6 +171,49 @@ function stopRotation() {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+// Check whether any holes of the currently displayed part come too close to the
+// socket zone (including tool radius).  Updates the warning overlay accordingly.
+function updatePaddingWarning() {
+  paddingWarning.style.display = 'none';
+  if (!overlayObj || loadedParts.length === 0) return;
+
+  const part = loadedParts.find(p => p.name === partSelect.value);
+  if (!part) return;
+
+  const partIndex = loadedParts.indexOf(part);
+  const upperPart = partIndex > 0 ? loadedParts[partIndex - 1] : null;
+  const socketTenon = upperPart?.tenonAtLowerEnd;
+  if (!socketTenon) return;   // no socket on this part → nothing to warn about
+
+  const paddingMm  = parseFloat(socketPaddingEl.value) || 0;
+  const toolRadius = parseFloat(toolDiamEl.value) / 2;
+  const xOffset    = loadedXMax || (wpParams.xOrigin + wpParams.length);
+  const socketLowerX  = xOffset - socketTenon.length;
+  const paddingLowerX = socketLowerX - paddingMm;
+
+  const lines: string[] = [];
+  for (const hole of part.holes) {
+    const hx        = xOffset + hole.centerX;
+    const effR      = hole.diameter / 2 + toolRadius;
+    const holeEdge  = hx + effR;   // edge of tool path closest to socket
+
+    if (holeEdge > socketLowerX) {
+      // Penetrates the socket zone — structural risk
+      const depth = (holeEdge - socketLowerX).toFixed(1);
+      lines.push(`<span style="color:#c01808">⛔ ${formatNoteName(hole.name)}: ${depth}&thinsp;mm in Zapfenzone</span>`);
+    } else if (paddingMm > 0 && holeEdge > paddingLowerX) {
+      // Inside the clearance band — too close
+      const clearance = (socketLowerX - holeEdge).toFixed(1);
+      lines.push(`<span style="color:#d06010">⚠ ${formatNoteName(hole.name)}: ${clearance}&thinsp;mm Abstand</span>`);
+    }
+  }
+
+  if (lines.length > 0) {
+    paddingWarning.innerHTML = lines.join('<br>');
+    paddingWarning.style.display = '';
+  }
+}
 
 // ── Load GCode ───────────────────────────────────────────────────────────────
 function loadGCode(text: string, filename: string) {
@@ -305,6 +349,7 @@ function applyOverlay(part: FlutePartGeometry) {
   btnWireframe.style.display = '';
   btnWireframe.classList.toggle('active', showWireframe);
   socketPaddingWrap.style.display = socketTenon ? 'inline-flex' : 'none';
+  updatePaddingWarning();
 }
 
 function loadYaml(text: string) {
@@ -390,6 +435,7 @@ partSelect.addEventListener('change', () => {
 
 toolDiamEl.addEventListener('change', () => {
   toolObj.setToolDiam(parseFloat(toolDiamEl.value));
+  updatePaddingWarning();
 });
 
 // Toggle grid
@@ -422,8 +468,10 @@ btnWireframe.addEventListener('click', () => {
 });
 
 // Socket padding (min. clearance beyond socket zone)
-socketPaddingEl.addEventListener('change', () => {
-  if (overlayObj) overlayObj.setSocketPadding(parseFloat(socketPaddingEl.value) || 0);
+socketPaddingEl.addEventListener('input', () => {
+  const mm = parseFloat(socketPaddingEl.value) || 0;
+  if (overlayObj) overlayObj.setSocketPadding(mm);
+  updatePaddingWarning();
 });
 
 // Keyboard shortcuts
