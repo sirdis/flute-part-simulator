@@ -13,11 +13,11 @@ export class Scene {
     // Renderer
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor(0x111111);
+    this.renderer.setClearColor(0xe4e8ec);
 
     // Scene
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x111111, 0.002);
+    this.scene.fog = new THREE.FogExp2(0xe4e8ec, 0.002);
 
     // Camera — Z is "up" in our world (Z=0 is workpiece center axis,
     // Z>0 is above the surface). OrbitControls respects camera.up.

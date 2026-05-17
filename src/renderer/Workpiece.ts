@@ -161,8 +161,8 @@ export function buildGrid(xMin: number, xMax: number): THREE.Object3D {
   // vertical lines in XZ plane (Y = 0, the side profile plane)
   const step = 10;
   const ext = 50;   // extent in Y and Z direction
-  const matMinor = new THREE.LineBasicMaterial({ color: 0x2a2a2a });
-  const matMajor = new THREE.LineBasicMaterial({ color: 0x3a3a3a });
+  const matMinor = new THREE.LineBasicMaterial({ color: 0xc8cdd2 });
+  const matMajor = new THREE.LineBasicMaterial({ color: 0xa8b0b8 });
 
   const minor: THREE.Vector3[] = [];
   const major: THREE.Vector3[] = [];
@@ -198,7 +198,7 @@ export function buildGrid(xMin: number, xMax: number): THREE.Object3D {
   const axGeo = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(xMin, 0, 0), new THREE.Vector3(xMax, 0, 0),
   ]);
-  group.add(new THREE.Line(axGeo, new THREE.LineBasicMaterial({ color: 0x505050 })));
+  group.add(new THREE.Line(axGeo, new THREE.LineBasicMaterial({ color: 0x8090a0 })));
 
   return group;
 }
