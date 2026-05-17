@@ -64,6 +64,7 @@
       position: relative;
       overflow: hidden;
       background: #ffffff;
+      outline: none;
     }
     #viewport canvas { display: block; width: 100% !important; height: 100% !important; }
 
@@ -210,6 +211,12 @@
   </div>
   <div class="sep"></div>
   <div class="group">
+    <label>Rollen:</label>
+    <button id="btn-rot-ccw" title="Um Längsachse rollen – gedrückt halten (R)">↺</button>
+    <button id="btn-rot-cw"  title="Um Längsachse rollen – gedrückt halten (Shift+R)">↻</button>
+  </div>
+  <div class="sep"></div>
+  <div class="group">
     <label>Werkzeug ∅:</label>
     <input type="number" id="tool-diam" value="3.175" step="0.1" min="0.1" max="20" title="Werkzeugdurchmesser mm">
     <label>mm</label>
@@ -235,7 +242,7 @@
 
 <!-- Main -->
 <div id="main">
-  <div id="viewport">
+  <div id="viewport" tabindex="0">
     <div id="drop-overlay">GCode (.nc) oder YAML (.yaml) hier ablegen</div>
     <div id="overlay-info">
       <div>A: <span id="info-a">0.00°</span></div>

@@ -28,6 +28,9 @@ const wpDiamBot    = document.getElementById('wp-diam-bot') as HTMLInputElement;
 const wpLength     = document.getElementById('wp-length') as HTMLInputElement;
 const btnToggleYaml= document.getElementById('btn-toggle-yaml')!;
 const btnToggleGrid= document.getElementById('btn-toggle-grid')!;
+const btnRotCcw    = document.getElementById('btn-rot-ccw')!;
+const btnRotCw     = document.getElementById('btn-rot-cw')!;
+const vpEl         = document.getElementById('viewport')!;
 const wpOpacityEl  = document.getElementById('wp-opacity') as HTMLInputElement;
 const partSelect   = document.getElementById('part-select') as HTMLSelectElement;
 const gcFilename   = document.getElementById('gcode-filename')!;
@@ -133,6 +136,30 @@ function updateToolPosition(m: MachineState) {
     depth * Math.cos(aRad) - m.x * Math.sin(aRad)
   );
   toolObj.setPosition(worldPos, m.a, m.y, r);
+}
+
+// ── Rotation around longitudinal axis ───────────────────────────────────────
+// 90°/s  →  4 s per full 360° revolution
+const ROT_DEG_PER_S = 90;
+let rotAnim: { dir: 1 | -1; lastT: number; id: number } | null = null;
+
+function startRotation(dir: 1 | -1) {
+  if (rotAnim?.dir === dir) return;   // already running this direction
+  stopRotation();
+  const state = { dir, lastT: performance.now(), id: 0 };
+  const tick = (now: number) => {
+    const dt = (now - state.lastT) / 1000;
+    state.lastT = now;
+    scene3d.rotateAroundLongAxis(dir * ROT_DEG_PER_S * dt);
+    state.id = requestAnimationFrame(tick);
+    rotAnim = state;
+  };
+  state.id = requestAnimationFrame(tick);
+  rotAnim = state;
+}
+
+function stopRotation() {
+  if (rotAnim) { cancelAnimationFrame(rotAnim.id); rotAnim = null; }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -297,10 +324,9 @@ fileYaml.addEventListener('change', () => {
 });
 
 // Drag & drop
-const vp = document.getElementById('viewport')!;
-vp.addEventListener('dragover', (e) => { e.preventDefault(); dropOverlay.classList.add('active'); });
-vp.addEventListener('dragleave', () => dropOverlay.classList.remove('active'));
-vp.addEventListener('drop', (e) => {
+vpEl.addEventListener('dragover', (e) => { e.preventDefault(); dropOverlay.classList.add('active'); });
+vpEl.addEventListener('dragleave', () => dropOverlay.classList.remove('active'));
+vpEl.addEventListener('drop', (e) => {
   e.preventDefault();
   dropOverlay.classList.remove('active');
   const files = Array.from(e.dataTransfer?.files ?? []);
@@ -369,24 +395,61 @@ btnToggleYaml.addEventListener('click', () => {
 });
 
 // Keyboard shortcuts
+// We preventDefault on every handled key so the browser's find-as-you-type
+// (Firefox quick-find) cannot intercept them.  The viewport has tabindex="0"
+// and receives focus on load / click, which additionally keeps the browser
+// out of the way.
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
   switch (e.key) {
-    case ' ': e.preventDefault();
+    case ' ':
+      e.preventDefault();
       if (simulator.currentState.isPlaying) simulator.pause(); else simulator.play();
       break;
     case 'ArrowLeft':
+      e.preventDefault();
       simulator.seekToLine(simulator.currentState.lineIndex - 1);
       break;
     case 'ArrowRight':
+      e.preventDefault();
       simulator.seekToLine(simulator.currentState.lineIndex + 1);
       break;
-    case 'i': case 'I': scene3d.setView('iso'); break;
-    case 't': case 'T': scene3d.setView('top'); break;
-    case 's': case 'S': scene3d.setView('side'); break;
-    case 'f': case 'F': scene3d.setView('front'); break;
+    case 'i': case 'I': e.preventDefault(); scene3d.setView('iso');   break;
+    case 't': case 'T': e.preventDefault(); scene3d.setView('top');   break;
+    case 's': case 'S': e.preventDefault(); scene3d.setView('side');  break;
+    case 'f': case 'F': e.preventDefault(); scene3d.setView('front'); break;
+    case 'r':
+      e.preventDefault();
+      if (!e.repeat) startRotation(1);   // start on first press, ignore auto-repeat
+      break;
+    case 'R':
+      e.preventDefault();
+      if (!e.repeat) startRotation(-1);
+      break;
   }
 });
+
+window.addEventListener('keyup', (e) => {
+  if (e.key === 'r' || e.key === 'R') stopRotation();
+});
+
+// ── Rotation buttons (hold to spin) ──────────────────────────────────────────
+function addHoldEvents(btn: HTMLElement, dir: 1 | -1) {
+  btn.addEventListener('mousedown',   () => startRotation(dir));
+  btn.addEventListener('touchstart',  () => startRotation(dir), { passive: true });
+  btn.addEventListener('mouseup',     stopRotation);
+  btn.addEventListener('mouseleave',  stopRotation);
+  btn.addEventListener('touchend',    stopRotation);
+  btn.addEventListener('touchcancel', stopRotation);
+}
+addHoldEvents(btnRotCcw, 1);
+addHoldEvents(btnRotCw, -1);
+
+// ── Viewport focus ────────────────────────────────────────────────────────────
+// Give the viewport keyboard focus on load and on click so the browser's
+// find-as-you-type never intercepts our shortcuts.
+vpEl.focus();
+vpEl.addEventListener('click', () => vpEl.focus());
 
 // ── Start render loop ────────────────────────────────────────────────────────
 scene3d.start();

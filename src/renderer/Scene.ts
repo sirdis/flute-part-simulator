@@ -107,4 +107,21 @@ export class Scene {
     this.controls.target.copy(center);
     this.controls.update();
   }
+
+  // Rotate the camera around the longitudinal axis (world X) by angleDeg degrees.
+  // This lets the user inspect the flute from different rotational angles,
+  // matching the A-axis of the machine.
+  rotateAroundLongAxis(angleDeg: number) {
+    const t = this.controls.target;
+    const offset = this.camera.position.clone().sub(t);
+    const q = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(1, 0, 0),
+      (angleDeg * Math.PI) / 180
+    );
+    offset.applyQuaternion(q);
+    this.camera.position.copy(t).add(offset);
+    this.camera.up.applyQuaternion(q);
+    this.camera.lookAt(t.x, t.y, t.z);
+    this.controls.update();
+  }
 }

@@ -1,6 +1,18 @@
 import * as THREE from 'three';
 import type { WorkpieceParams, FlutePartGeometry, FluteTenonGeometry } from '../types';
 
+// Simple fallback cylinder shown when no YAML overlay is loaded (or overlay toggled off).
+// Warm gray – intentionally different from the YAML overlay blue so the user can
+// immediately tell which representation is active.
+const MAT_WP = new THREE.MeshStandardMaterial({
+  color: 0xd4cfc8,   // warm light gray
+  transparent: true,
+  opacity: 0.55,
+  side: THREE.DoubleSide,
+  depthWrite: false,
+});
+
+// YAML overlay body – light blue
 const MAT_BODY = new THREE.MeshStandardMaterial({
   color: 0xc8dff5,   // very light blue
   transparent: true,
@@ -70,7 +82,7 @@ export class WorkpieceObject {
     // xOrigin+length = world X of upper end (large radius, machine Y max)
     // cylinder(firstArg, secondArg): firstArg is at world X=0, secondArg at world X=length
     const geo = cylinder(rBot, rTop, length);
-    const bodyMat = MAT_BODY.clone(); bodyMat.opacity = this.opacity;
+    const bodyMat = MAT_WP.clone(); bodyMat.opacity = this.opacity;
     const mesh = new THREE.Mesh(geo, bodyMat);
     mesh.position.x = xOrigin;
     this.group.add(mesh);
@@ -79,7 +91,7 @@ export class WorkpieceObject {
     const wireGeo = cylinder(rBot, rTop, length);
     const wire = new THREE.LineSegments(
       new THREE.WireframeGeometry(wireGeo),
-      new THREE.LineBasicMaterial({ color: 0x7aafd4, opacity: 0.4, transparent: true })
+      new THREE.LineBasicMaterial({ color: 0xa09890, opacity: 0.4, transparent: true })
     );
     wire.position.x = xOrigin;
     this.group.add(wire);
