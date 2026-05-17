@@ -213,8 +213,11 @@ function loadYaml(text: string) {
   // Align overlay: upper end of flute at xMax (largest GCode X value)
   overlayObj = new FluteOverlay(flutePart, loadedXMax || wpParams.xOrigin + wpParams.length);
   scene3d.scene.add(overlayObj.group);
-  overlayObj.group.visible = showYaml;
+  showYaml = true;                          // always start visible on (re-)load
+  overlayObj.group.visible = true;
+  wpObject.group.visible = false;           // overlay replaces the plain cylinder
   btnToggleYaml.style.display = '';
+  btnToggleYaml.classList.add('active');
 }
 
 // ── Rebuild toolpath when mode changes ───────────────────────────────────────
@@ -294,10 +297,11 @@ btnToggleGrid.addEventListener('click', () => {
   btnToggleGrid.classList.toggle('active', showGrid);
 });
 
-// Toggle YAML overlay
+// Toggle YAML overlay (cylinder follows inversely: hidden when overlay is shown)
 btnToggleYaml.addEventListener('click', () => {
   showYaml = !showYaml;
   if (overlayObj) overlayObj.group.visible = showYaml;
+  wpObject.group.visible = !showYaml;
   btnToggleYaml.classList.toggle('active', showYaml);
 });
 
