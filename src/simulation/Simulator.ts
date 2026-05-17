@@ -7,7 +7,6 @@ const DEFAULT_MACHINE: MachineState = { x: 0, y: 0, z: 0, a: 0, f: 600, isAbsolu
 export class Simulator {
   private lines: GCodeLine[] = [];
   private machineStates: MachineState[] = [];
-  private segments: MotionSegment[] = [];
   private segmentByLine: Map<number, MotionSegment> = new Map();
 
   private state: SimulatorState = {
@@ -35,8 +34,6 @@ export class Simulator {
   ) {
     this.lines = lines;
     this.machineStates = machineStates;
-    this.segments = segments;
-
     this.segmentByLine = new Map();
     for (const seg of segments) {
       if (!this.segmentByLine.has(seg.lineIndex)) {

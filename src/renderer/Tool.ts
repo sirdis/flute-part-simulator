@@ -9,7 +9,6 @@ export class ToolObject {
   group: THREE.Group;
   private body: THREE.Mesh;
   private tip: THREE.Mesh;
-  private toolDiam = 3.175;
 
   // A-axis indicator
   private aRing: THREE.Line;
@@ -55,7 +54,6 @@ export class ToolObject {
   }
 
   setToolDiam(d: number) {
-    this.toolDiam = d;
     const r = d / 2;
     (this.body.geometry as THREE.CylinderGeometry).dispose();
     (this.tip.geometry as THREE.CylinderGeometry).dispose();

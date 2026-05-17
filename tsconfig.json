@@ -10,7 +10,8 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals"],
+    "noEmit": true
   },
   "include": ["src"]
 }

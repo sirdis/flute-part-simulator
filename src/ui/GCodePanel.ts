@@ -22,7 +22,6 @@ export class GCodePanel {
   private currentIndex = -1;
   private onHover: (lineIndex: number) => void;
   private onClick: (lineIndex: number) => void;
-  private elements: HTMLElement[] = [];
 
   // Virtual scroll state
   private visibleStart = 0;
@@ -55,7 +54,6 @@ export class GCodePanel {
 
   load(lines: GCodeLine[]) {
     this.lines = lines;
-    this.elements = [];
     this.list.innerHTML = '';
     this.list.appendChild(this.spacerTop);
     this.list.appendChild(this.spacerBot);
