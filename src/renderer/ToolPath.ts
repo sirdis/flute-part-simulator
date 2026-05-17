@@ -68,10 +68,8 @@ export interface ToolPathBuffers {
 
 export function buildToolPathBuffers(
   segments: MotionSegment[],
-  radiusFn: (x: number) => number,
-  workpieceFrame: boolean
+  radiusFn: (x: number) => number
 ): ToolPathBuffers {
-  // Estimate buffer sizes conservatively
   const maxRapid = segments.filter(s => s.isRapid).length * 2 * 3;
   const maxFeed  = segments.filter(s => !s.isRapid).length * (ARC_STEPS + 2) * 2 * 3;
 
@@ -80,17 +78,15 @@ export function buildToolPathBuffers(
   let ri = 0, fi = 0;
   const segmentToFeedPos: number[] = [];
 
-  const toWorld = workpieceFrame
-    ? (mx: number, my: number, mz: number, a: number) => machineToWorld(mx, my, mz, a, radiusFn)
-    // Machine-frame mode: world X = machY (longitudinal), world Y = machX (cross), world Z = surface + depth
-    : (mx: number, my: number, mz: number, _a: number) => new THREE.Vector3(my, mx, radiusFn(my) + mz);
+  const tw = (mx: number, my: number, mz: number, a: number) =>
+    machineToWorld(mx, my, mz, a, radiusFn);
 
   for (const seg of segments) {
     const { fromMachine: fm, toMachine: tm, isRapid, arc } = seg;
 
     if (isRapid) {
-      const from = toWorld(fm.x, fm.y, fm.z, fm.a);
-      const to   = toWorld(tm.x, tm.y, tm.z, tm.a);
+      const from = tw(fm.x, fm.y, fm.z, fm.a);
+      const to   = tw(tm.x, tm.y, tm.z, tm.a);
       if (ri + 6 <= rapidPos.length) {
         rapidPos[ri++] = from.x; rapidPos[ri++] = from.y; rapidPos[ri++] = from.z;
         rapidPos[ri++] = to.x;   rapidPos[ri++] = to.y;   rapidPos[ri++] = to.z;
@@ -101,20 +97,15 @@ export function buildToolPathBuffers(
       let pts: THREE.Vector3[];
 
       if (arc) {
-        if (workpieceFrame) {
-          pts = tessellateArc(
-            fm.x, fm.y, fm.z, tm.x, tm.y, tm.z,
-            arc.i, arc.j, arc.cw, fm.a,
-            radiusFn
-          );
-        } else {
-          // machine-frame: arc in machine XY, map to world (worldX=machY, worldY=machX)
-          pts = tessellateArcMachine(fm.x, fm.y, fm.z, tm.x, tm.y, tm.z, arc.i, arc.j, arc.cw)
-            .map(p => new THREE.Vector3(p.y, p.x, radiusFn(p.y) + p.z));
-        }
+        // Always use workpiece-frame arc tessellation (A-rotation applied correctly)
+        pts = tessellateArc(
+          fm.x, fm.y, fm.z, tm.x, tm.y, tm.z,
+          arc.i, arc.j, arc.cw, fm.a,
+          radiusFn
+        );
       } else {
-        const from = toWorld(fm.x, fm.y, fm.z, fm.a);
-        const to   = toWorld(tm.x, tm.y, tm.z, tm.a);
+        const from = tw(fm.x, fm.y, fm.z, fm.a);
+        const to   = tw(tm.x, tm.y, tm.z, tm.a);
         pts = [from, to];
       }
 
@@ -135,28 +126,6 @@ export function buildToolPathBuffers(
   };
 }
 
-function tessellateArcMachine(
-  fx: number, fy: number, fz: number,
-  tx: number, ty: number, tz: number,
-  i: number, j: number, cw: boolean
-): THREE.Vector3[] {
-  const cx = fx + i, cy = fy + j;
-  const startAngle = Math.atan2(fy - cy, fx - cx);
-  const endAngle   = Math.atan2(ty - cy, tx - cx);
-  let delta = endAngle - startAngle;
-  if (cw  && delta > 0) delta -= 2 * Math.PI;
-  if (!cw && delta < 0) delta += 2 * Math.PI;
-  if (delta === 0) delta = cw ? -2 * Math.PI : 2 * Math.PI;
-  const steps = Math.max(8, Math.ceil(Math.abs(delta) / (Math.PI / ARC_STEPS)));
-  const r = Math.sqrt(i * i + j * j);
-  const pts: THREE.Vector3[] = [];
-  for (let s = 0; s <= steps; s++) {
-    const t = s / steps;
-    const angle = startAngle + delta * t;
-    pts.push(new THREE.Vector3(cx + r * Math.cos(angle), cy + r * Math.sin(angle), fz + (tz - fz) * t));
-  }
-  return pts;
-}
 
 const MAT_RAPID = new THREE.LineBasicMaterial({ color: 0x555555 });
 const MAT_FEED  = new THREE.LineBasicMaterial({ color: 0x4ec9b0 });

@@ -7,7 +7,7 @@ import { ToolPathObject, buildToolPathBuffers } from './renderer/ToolPath';
 import { ToolObject } from './renderer/Tool';
 import { Simulator } from './simulation/Simulator';
 import { GCodePanel } from './ui/GCodePanel';
-import type { WorkpieceParams, FlutePartGeometry, SimulatorState, MachineState, MotionSegment } from './types';
+import type { WorkpieceParams, FlutePartGeometry, SimulatorState, MachineState } from './types';
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
 const canvas       = document.createElement('canvas');
@@ -28,7 +28,6 @@ const wpDiamBot    = document.getElementById('wp-diam-bot') as HTMLInputElement;
 const wpLength     = document.getElementById('wp-length') as HTMLInputElement;
 const btnToggleYaml= document.getElementById('btn-toggle-yaml')!;
 const btnToggleGrid= document.getElementById('btn-toggle-grid')!;
-const btnWpFrame   = document.getElementById('btn-toggle-toolpath-mode')!;
 const gcFilename   = document.getElementById('gcode-filename')!;
 const holeList     = document.getElementById('hole-list')!;
 const dropOverlay  = document.getElementById('drop-overlay')!;
@@ -48,7 +47,6 @@ document.querySelectorAll('[data-view]').forEach(btn => {
 });
 
 // ── State ───────────────────────────────────────────────────────────────────
-let workpieceFrame = true;
 let showYaml = true;
 let showGrid = true;
 let flutePart: FlutePartGeometry | null = null;
@@ -64,7 +62,6 @@ const toolPath  = new ToolPathObject();
 const toolObj   = new ToolObject();
 let   gridObj: THREE.Object3D = buildGrid(0, 240);
 let   overlayObj: FluteOverlay | null = null;
-let   loadedSegments: MotionSegment[] = [];
 let   loadedXMax = 0;   // GCode X of upper end of flute (for YAML overlay alignment)
 
 scene3d.scene.add(wpObject.group, toolPath.group, toolObj.group, gridObj);
@@ -170,9 +167,8 @@ function loadGCode(text: string, filename: string) {
   gridObj.visible = showGrid;
 
   // Build toolpath geometry
-  loadedSegments = result.segments;
   const radiusFn = (x: number) => wpObject.radiusAt(x);
-  const buffers = buildToolPathBuffers(result.segments, radiusFn, workpieceFrame);
+  const buffers = buildToolPathBuffers(result.segments, radiusFn);
   toolPath.load(buffers);
 
   // Load simulator
@@ -218,15 +214,6 @@ function loadYaml(text: string) {
   wpObject.group.visible = false;           // overlay replaces the plain cylinder
   btnToggleYaml.style.display = '';
   btnToggleYaml.classList.add('active');
-}
-
-// ── Rebuild toolpath when mode changes ───────────────────────────────────────
-function rebuildToolPath() {
-  if (!loadedSegments.length) return;
-  const radiusFn = (x: number) => wpObject.radiusAt(x);
-  const buffers = buildToolPathBuffers(loadedSegments, radiusFn, workpieceFrame);
-  toolPath.load(buffers);
-  toolPath.setProgress(0);
 }
 
 // ── UI events ────────────────────────────────────────────────────────────────
@@ -303,13 +290,6 @@ btnToggleYaml.addEventListener('click', () => {
   if (overlayObj) overlayObj.group.visible = showYaml;
   wpObject.group.visible = !showYaml;
   btnToggleYaml.classList.toggle('active', showYaml);
-});
-
-// Toggle workpiece-frame mode
-btnWpFrame.addEventListener('click', () => {
-  workpieceFrame = !workpieceFrame;
-  btnWpFrame.classList.toggle('active', workpieceFrame);
-  rebuildToolPath();
 });
 
 // Keyboard shortcuts
