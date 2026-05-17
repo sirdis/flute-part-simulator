@@ -29,6 +29,7 @@ const wpLength     = document.getElementById('wp-length') as HTMLInputElement;
 const btnToggleYaml= document.getElementById('btn-toggle-yaml')!;
 const btnToggleGrid= document.getElementById('btn-toggle-grid')!;
 const wpOpacityEl  = document.getElementById('wp-opacity') as HTMLInputElement;
+const partSelect   = document.getElementById('part-select') as HTMLSelectElement;
 const gcFilename   = document.getElementById('gcode-filename')!;
 const holeList     = document.getElementById('hole-list')!;
 const dropOverlay  = document.getElementById('drop-overlay')!;
@@ -50,7 +51,8 @@ document.querySelectorAll('[data-view]').forEach(btn => {
 // ── State ───────────────────────────────────────────────────────────────────
 let showYaml = true;
 let showGrid = true;
-let flutePart: FlutePartGeometry | null = null;
+let loadedParts: FlutePartGeometry[] = [];
+let loadedGCodeFilename = '';
 
 const wpParams: WorkpieceParams = {
   diamTop: 29, diamBottom: 27, length: 240, xOrigin: 0,
@@ -147,12 +149,14 @@ function formatNoteName(raw: string): string {
 
 // ── Load GCode ───────────────────────────────────────────────────────────────
 function loadGCode(text: string, filename: string) {
+  loadedGCodeFilename = filename;
+
   const lines = parseGCode(text);
   const result = buildMotion(lines);
 
   // Update tool diameter from GCode comment
   toolObj.setToolDiam(result.toolDiameter);
-  (toolDiamEl as HTMLInputElement).value = String(result.toolDiameter);
+  toolDiamEl.value = String(result.toolDiameter);
 
   // Derive workpiece params from GCode Y range (machine Y = longitudinal axis)
   const [yMin, yMax] = result.yRange;
@@ -196,25 +200,53 @@ function loadGCode(text: string, filename: string) {
   // Focus camera on workpiece
   const center = new THREE.Vector3((yMin + yMax) / 2, 0, 0);
   scene3d.focusOn(center, wpParams.length / 2);
+
+  // If YAML parts are already loaded, re-apply the matching part with the new xOffset
+  if (loadedParts.length > 0) {
+    const match = matchPart(loadedParts, filename);
+    partSelect.value = match.name;
+    applyOverlay(match);
+  }
 }
 
 // ── Load YAML ────────────────────────────────────────────────────────────────
+
+// Find best-matching part for a GCode filename, e.g. "0015-footer.nc" → "footer"
+function matchPart(parts: FlutePartGeometry[], filename: string): FlutePartGeometry {
+  const lower = filename.toLowerCase();
+  return parts.find(p => lower.includes(p.name.toLowerCase())) ?? parts[0];
+}
+
+function applyOverlay(part: FlutePartGeometry) {
+  if (overlayObj) scene3d.scene.remove(overlayObj.group);
+  overlayObj = new FluteOverlay(part, loadedXMax || wpParams.xOrigin + wpParams.length);
+  overlayObj.setOpacity(parseInt(wpOpacityEl.value) / 100);
+  scene3d.scene.add(overlayObj.group);
+  showYaml = true;
+  overlayObj.group.visible = true;
+  wpObject.group.visible = false;
+  btnToggleYaml.style.display = '';
+  btnToggleYaml.classList.add('active');
+}
+
 function loadYaml(text: string) {
   const parts = parseYaml(text);
   if (parts.length === 0) return;
-  flutePart = parts[0]; // single part for now
+  loadedParts = parts;
 
-  if (overlayObj) {
-    scene3d.scene.remove(overlayObj.group);
+  // Populate part selector
+  partSelect.innerHTML = '';
+  for (const p of parts) {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name;
+    partSelect.appendChild(opt);
   }
-  // Align overlay: upper end of flute at xMax (largest GCode X value)
-  overlayObj = new FluteOverlay(flutePart, loadedXMax || wpParams.xOrigin + wpParams.length);
-  scene3d.scene.add(overlayObj.group);
-  showYaml = true;                          // always start visible on (re-)load
-  overlayObj.group.visible = true;
-  wpObject.group.visible = false;           // overlay replaces the plain cylinder
-  btnToggleYaml.style.display = '';
-  btnToggleYaml.classList.add('active');
+  partSelect.style.display = parts.length > 1 ? '' : 'none';
+
+  const match = matchPart(parts, loadedGCodeFilename);
+  partSelect.value = match.name;
+  applyOverlay(match);
 }
 
 // ── UI events ────────────────────────────────────────────────────────────────
@@ -261,6 +293,11 @@ scrubber.addEventListener('input', () => {
 
 speedSelect.addEventListener('change', () => {
   simulator.setSpeed(parseFloat(speedSelect.value));
+});
+
+partSelect.addEventListener('change', () => {
+  const part = loadedParts.find(p => p.name === partSelect.value);
+  if (part) applyOverlay(part);
 });
 
 // Workpiece params
