@@ -50,20 +50,20 @@ parts:
 
 describe('parseYaml – basic part', () => {
   it('parses part name and bore length', () => {
-    const parts = parseYaml(MINIMAL_YAML);
+    const { parts } = parseYaml(MINIMAL_YAML);
     expect(parts).toHaveLength(1);
     expect(parts[0].name).toBe('lh-part');
     expect(parts[0].boreLen).toBeCloseTo(208.18);
   });
 
   it('converts tube diameters to radii', () => {
-    const [part] = parseYaml(MINIMAL_YAML);
+    const { parts: [part] } = parseYaml(MINIMAL_YAML);
     expect(part.radiusAtZero).toBeCloseTo(28.9 / 2);
     expect(part.radiusAtEnd).toBeCloseTo(26.53 / 2);
   });
 
   it('parses holes correctly', () => {
-    const [part] = parseYaml(MINIMAL_YAML);
+    const { parts: [part] } = parseYaml(MINIMAL_YAML);
     expect(part.holes).toHaveLength(1);
     expect(part.holes[0].name).toBe('c-2');
     expect(part.holes[0].centerX).toBe(-10);
@@ -74,21 +74,21 @@ describe('parseYaml – basic part', () => {
 
 describe('parseYaml – tenons', () => {
   it('parses tenonAtZero', () => {
-    const [part] = parseYaml(YAML_WITH_TENONS);
+    const { parts: [part] } = parseYaml(YAML_WITH_TENONS);
     expect(part.tenonAtZero).toBeDefined();
     expect(part.tenonAtZero?.length).toBe(28);
     expect(part.tenonAtZero?.radius).toBeCloseTo(24.5 / 2);
   });
 
   it('parses tenonAtLowerEnd', () => {
-    const [part] = parseYaml(YAML_WITH_TENONS);
+    const { parts: [part] } = parseYaml(YAML_WITH_TENONS);
     expect(part.tenonAtLowerEnd).toBeDefined();
     expect(part.tenonAtLowerEnd?.length).toBe(20);
     expect(part.tenonAtLowerEnd?.radius).toBeCloseTo(22.0 / 2);
   });
 
   it('leaves tenons undefined when absent', () => {
-    const [part] = parseYaml(MINIMAL_YAML);
+    const { parts: [part] } = parseYaml(MINIMAL_YAML);
     expect(part.tenonAtZero).toBeUndefined();
     expect(part.tenonAtLowerEnd).toBeUndefined();
   });
@@ -96,12 +96,12 @@ describe('parseYaml – tenons', () => {
 
 describe('parseYaml – disabled holes', () => {
   it('includes enabled holes', () => {
-    const [part] = parseYaml(YAML_WITH_DISABLED_HOLES);
+    const { parts: [part] } = parseYaml(YAML_WITH_DISABLED_HOLES);
     expect(part.holes.some(h => h.name === 'c-sharp-2')).toBe(true);
   });
 
   it('excludes holes with enabled: false', () => {
-    const [part] = parseYaml(YAML_WITH_DISABLED_HOLES);
+    const { parts: [part] } = parseYaml(YAML_WITH_DISABLED_HOLES);
     expect(part.holes.some(h => h.name === 'spare')).toBe(false);
     expect(part.holes).toHaveLength(1);
   });
@@ -128,14 +128,36 @@ parts:
 `;
 
   it('returns all parts in order', () => {
-    const parts = parseYaml(MULTI);
+    const { parts } = parseYaml(MULTI);
     expect(parts).toHaveLength(3);
     expect(parts.map(p => p.name)).toEqual(['lh-part', 'rh-part', 'footer']);
   });
 });
 
+describe('parseYaml – safetyBetweenHoleAndTenon', () => {
+  const YAML_WITH_SAFETY = `
+safetyBetweenHoleAndTenon: 3
+parts:
+  - name: lh-part
+    boreLen: 208
+    tubeDiamAtBoreZero: 29
+    tubeDiamAtBoreLowerEnd: 27
+    holes: []
+`;
+
+  it('reads safetyBetweenHoleAndTenon from document root', () => {
+    const { safetyBetweenHoleAndTenon } = parseYaml(YAML_WITH_SAFETY);
+    expect(safetyBetweenHoleAndTenon).toBe(3);
+  });
+
+  it('returns undefined when field is absent', () => {
+    const { safetyBetweenHoleAndTenon } = parseYaml(MINIMAL_YAML);
+    expect(safetyBetweenHoleAndTenon).toBeUndefined();
+  });
+});
+
 describe('parseYaml – edge cases', () => {
-  it('returns empty array for empty input', () => {
-    expect(parseYaml('')).toEqual([]);
+  it('returns empty parts array for empty input', () => {
+    expect(parseYaml('').parts).toEqual([]);
   });
 });

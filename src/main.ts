@@ -353,9 +353,14 @@ function applyOverlay(part: FlutePartGeometry) {
 }
 
 function loadYaml(text: string) {
-  const parts = parseYaml(text);
+  const { parts, safetyBetweenHoleAndTenon } = parseYaml(text);
   if (parts.length === 0) return;
   loadedParts = parts;
+
+  // If the YAML specifies a safety value, use it as the padding default
+  if (safetyBetweenHoleAndTenon !== undefined) {
+    socketPaddingEl.value = String(safetyBetweenHoleAndTenon);
+  }
 
   // Populate part selector
   partSelect.innerHTML = '';

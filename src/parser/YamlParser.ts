@@ -32,9 +32,18 @@ function parsePart(p: any): FlutePartGeometry {
   };
 }
 
-export function parseYaml(text: string): FlutePartGeometry[] {
+export interface YamlParseResult {
+  parts: FlutePartGeometry[];
+  safetyBetweenHoleAndTenon?: number;
+}
+
+export function parseYaml(text: string): YamlParseResult {
   const doc = yaml.load(text) as any;
-  if (!doc) return [];
-  const parts = doc.parts ?? [doc];
-  return parts.map(parsePart);
+  if (!doc) return { parts: [] };
+  const parts = (doc.parts ?? [doc]).map(parsePart);
+  const safetyBetweenHoleAndTenon =
+    typeof doc.safetyBetweenHoleAndTenon === 'number'
+      ? doc.safetyBetweenHoleAndTenon
+      : undefined;
+  return { parts, safetyBetweenHoleAndTenon };
 }
