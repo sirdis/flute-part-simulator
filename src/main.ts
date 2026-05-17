@@ -242,8 +242,15 @@ function applyOverlay(part: FlutePartGeometry) {
   wpLength.value  = wpParams.length.toString();
 
   // ── Rebuild overlay ────────────────────────────────────────────────────────
+  // Find the socket tenon: the upper adjacent part's tenonAtLowerEnd inserts into
+  // this part's upper bore end. This zone should be highlighted to warn if holes
+  // from the GCode fall inside it and would break the joint.
+  const partIndex = loadedParts.indexOf(part);
+  const upperPart = partIndex > 0 ? loadedParts[partIndex - 1] : null;
+  const socketTenon = upperPart?.tenonAtLowerEnd;
+
   if (overlayObj) scene3d.scene.remove(overlayObj.group);
-  overlayObj = new FluteOverlay(part, loadedXMax || wpParams.xOrigin + wpParams.length);
+  overlayObj = new FluteOverlay(part, loadedXMax || wpParams.xOrigin + wpParams.length, socketTenon);
   overlayObj.setOpacity(parseInt(wpOpacityEl.value) / 100);
   scene3d.scene.add(overlayObj.group);
   showYaml = true;

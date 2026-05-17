@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { WorkpieceParams, FlutePartGeometry } from '../types';
+import type { WorkpieceParams, FlutePartGeometry, FluteTenonGeometry } from '../types';
 
 const MAT_BODY = new THREE.MeshStandardMaterial({
   color: 0xc8dff5,   // very light blue
@@ -22,6 +22,14 @@ const MAT_HOLE = new THREE.MeshStandardMaterial({
   transparent: true,
   opacity: 0.85,
   side: THREE.DoubleSide,
+});
+
+const MAT_SOCKET = new THREE.MeshStandardMaterial({
+  color: 0xe87820,   // amber/orange – socket zone indicator
+  transparent: true,
+  opacity: 0.35,
+  side: THREE.DoubleSide,
+  depthWrite: false,
 });
 
 // Three.js CylinderGeometry is along Y axis → rotate to align with X
@@ -99,10 +107,12 @@ export class FluteOverlay {
   private part: FlutePartGeometry;
   xOffset: number;
   private opacity = 0.35;
+  private socketTenon?: FluteTenonGeometry;
 
-  constructor(part: FlutePartGeometry, xOffset = 0) {
+  constructor(part: FlutePartGeometry, xOffset = 0, socketTenon?: FluteTenonGeometry) {
     this.part = part;
     this.xOffset = xOffset;
+    this.socketTenon = socketTenon;
     this.group = new THREE.Group();
     this.rebuild();
   }
@@ -153,6 +163,25 @@ export class FluteOverlay {
       const outward = new THREE.Vector3(0, Math.sin(aRad), Math.cos(aRad));
       disc.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), outward);
       this.group.add(disc);
+    }
+
+    // ── Socket zone: shows where the upper part's tenon is inserted ──────────
+    // The tenon from the adjacent upper part sits at the top of this bore (xOffset),
+    // extending inward by tenonLength. Highlight it in amber so the user can see
+    // if any holes fall inside the socket zone (which would weaken the joint).
+    if (this.socketTenon) {
+      const { length: tenonLen, radius: tenonRad } = this.socketTenon;
+      // Socket starts at xOffset (bore zero = upper end) and extends toward lower end
+      const socketStart = this.xOffset - tenonLen;
+      // Use bore radius at that zone (at xOffset, i.e. radiusAtZero), padded a tiny bit
+      // to avoid z-fighting with the bore surface. We render it as a plain cylinder
+      // at the tenon's own radius (which is the tenon OD = socket ID).
+      const socketMat = MAT_SOCKET.clone();
+      socketMat.opacity = Math.min(0.7, this.opacity + 0.25); // always somewhat visible
+      const socketGeo = cylinder(tenonRad, tenonRad, tenonLen);
+      const socketMesh = new THREE.Mesh(socketGeo, socketMat);
+      socketMesh.position.x = socketStart;
+      this.group.add(socketMesh);
     }
   }
 
