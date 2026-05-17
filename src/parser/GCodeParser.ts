@@ -26,7 +26,8 @@ function parseLine(raw: string, lineIndex: number): GCodeLine {
 
   // Extract MARK hole name
   let mark: string | null = null;
-  const markMatch = comment.match(/MARK\s+Hole:\s*([^\s->]+)/i);
+  // Name is non-whitespace chars up to the optional " ->" separator
+  const markMatch = comment.match(/MARK\s+Hole:\s*(\S+?)(?:\s*->|$)/i);
   if (markMatch) mark = markMatch[1];
 
   let command: ParsedCommand | null = null;

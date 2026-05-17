@@ -134,6 +134,19 @@ function updateToolPosition(m: MachineState) {
   toolObj.setPosition(worldPos, m.a, m.y, r);
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+// Format a raw MARK hole name into a compact musical label.
+// "c-sharp-2" → "C♯2",  "b-flat" → "B♭",  "c-2" → "C2"
+function formatNoteName(raw: string): string {
+  return raw
+    .replace(/-sharp/i, '♯')
+    .replace(/-flat/i,  '♭')
+    .replace(/-natural/i, '♮')
+    .replace(/^([a-g])/i, (_, l: string) => l.toUpperCase())
+    .replace(/-(\d+)$/, '$1');   // strip hyphen before trailing number
+}
+
 // ── Load GCode ───────────────────────────────────────────────────────────────
 function loadGCode(text: string, filename: string) {
   const lines = parseGCode(text);
@@ -174,8 +187,8 @@ function loadGCode(text: string, filename: string) {
   for (const mark of result.marks) {
     const btn = document.createElement('button');
     btn.className = 'hole-btn';
-    btn.textContent = mark.name;
-    btn.title = `Zeile ${mark.lineIndex + 1}`;
+    btn.textContent = formatNoteName(mark.name);
+    btn.title = `${mark.name}  –  Zeile ${mark.lineIndex + 1}`;
     btn.addEventListener('click', () => {
       simulator.seekToLine(mark.lineIndex);
       gcPanel.scrollToLine(mark.lineIndex);
