@@ -208,13 +208,38 @@ function loadGCode(text: string, filename: string) {
   // Populate hole buttons
   holeList.innerHTML = '';
   for (const mark of result.marks) {
+    // machineStates[i] = state BEFORE line i executes, so seeking to the MARK
+    // comment line shows the previous hole's end position.  Find the first
+    // motion command after the MARK and seek to the line AFTER it so the tool
+    // is shown at the hole position (state after the rapid/feed move).
+    // The GCode structure around each hole is:
+    //   G00 Z<lift>           ← BEFORE the MARK
+    //   (MARK Hole: <name>)   ← mark.lineIndex
+    //   ...comments...
+    //   G00 A<angle>          ← rotate
+    //   G00 X<x> Y<y>         ← position
+    //   G01 Z0                ← touch surface  ← we seek HERE
+    //   G92 Z0                ← reset
+    //
+    // machineStates[i] = state BEFORE line i, so seeking to the first G01
+    // gives us the state AFTER all the G00 rapids = tool at correct A,X,Y
+    // (Z still lifted above surface, which is fine for visualisation).
+    let seekIdx = mark.lineIndex + 1;
+    for (let i = mark.lineIndex + 1; i < lines.length; i++) {
+      const t = lines[i].command?.type;
+      if (t === 'G01' || t === 'G02' || t === 'G03') {
+        seekIdx = i;   // state BEFORE this line = after all G00 rapids
+        break;
+      }
+    }
+
     const btn = document.createElement('button');
     btn.className = 'hole-btn';
     btn.textContent = formatNoteName(mark.name);
     btn.title = `${mark.name}  –  Zeile ${mark.lineIndex + 1}`;
     btn.addEventListener('click', () => {
-      simulator.seekToLine(mark.lineIndex);
-      gcPanel.scrollToLine(mark.lineIndex);
+      simulator.seekToLine(seekIdx);
+      gcPanel.scrollToLine(seekIdx);
     });
     holeList.appendChild(btn);
   }

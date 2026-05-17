@@ -141,15 +141,29 @@ export class FluteOverlay {
   private rebuild() {
     this.group.clear();
     const { radiusAtZero, radiusAtEnd, boreLen, tenonAtZero, tenonAtLowerEnd, holes } = this.part;
-    const lowerEnd = this.xOffset - boreLen;
+
+    // boreLen = visibleLen + ownTenons − upperPartTenon
+    //   tenonAtZero:     this part's upper tenon  → hidden inside upper socket
+    //   tenonAtLowerEnd: this part's lower tenon  → hidden inside lower socket
+    // Both are machined on this part but not visible in the assembled flute,
+    // so both must be subtracted to get the true visible body length.
+    const visibleLen = boreLen
+      - (tenonAtZero?.length    ?? 0)
+      - (tenonAtLowerEnd?.length ?? 0);
+    const lowerEnd   = this.xOffset - visibleLen;
+
+    // Radius at the new lower end — interpolate along the full taper
+    const taper  = boreLen > 0 ? visibleLen / boreLen : 1;
+    const rLower = radiusAtZero * (1 - taper) + radiusAtEnd * taper;
 
     const bodyMat = MAT_BODY.clone(); bodyMat.opacity = this.opacity;
-    const bodyGeo = cylinder(radiusAtEnd, radiusAtZero, boreLen);
+    const bodyGeo = cylinder(rLower, radiusAtZero, visibleLen);
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     bodyMesh.position.x = lowerEnd;
     this.group.add(bodyMesh);
 
     if (tenonAtZero) {
+      // Protrudes above Y=0 (into the barrel / upper joint)
       const tenonMat = MAT_TENON.clone(); tenonMat.opacity = this.opacity;
       const g = cylinder(tenonAtZero.radius, tenonAtZero.radius, tenonAtZero.length);
       const m = new THREE.Mesh(g, tenonMat);
@@ -158,6 +172,7 @@ export class FluteOverlay {
     }
 
     if (tenonAtLowerEnd) {
+      // Protrudes below the visible body (goes into the next part's socket)
       const tenonMat = MAT_TENON.clone(); tenonMat.opacity = this.opacity;
       const g = cylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius, tenonAtLowerEnd.length);
       const m = new THREE.Mesh(g, tenonMat);
