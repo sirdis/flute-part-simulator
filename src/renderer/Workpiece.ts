@@ -37,7 +37,15 @@ const MAT_HOLE = new THREE.MeshStandardMaterial({
 });
 
 const MAT_SOCKET = new THREE.MeshStandardMaterial({
-  color: 0xe87820,   // amber/orange – socket zone indicator
+  color: 0xe87820,   // amber/orange – socket zone (tenon itself)
+  transparent: true,
+  opacity: 0.35,
+  side: THREE.DoubleSide,
+  depthWrite: false,
+});
+
+const MAT_PADDING = new THREE.MeshStandardMaterial({
+  color: 0xc01808,   // clear red – minimum-clearance padding zone
   transparent: true,
   opacity: 0.35,
   side: THREE.DoubleSide,
@@ -153,6 +161,7 @@ export class FluteOverlay {
   private opacity = 0.35;
   private socketTenon?: FluteTenonGeometry;
   private wireframe = false;
+  private socketPadding = 3;   // mm – minimum clearance beyond socket zone
 
   constructor(part: FlutePartGeometry, xOffset = 0, socketTenon?: FluteTenonGeometry) {
     this.part = part;
@@ -165,15 +174,30 @@ export class FluteOverlay {
   setOpacity(v: number) {
     this.opacity = v;
     this.group.traverse(obj => {
-      if ((obj instanceof THREE.Mesh || obj instanceof THREE.LineSegments) && obj.material) {
-        (obj.material as THREE.MeshStandardMaterial | THREE.LineBasicMaterial).opacity = v;
-      }
+      if (!(obj instanceof THREE.Mesh || obj instanceof THREE.LineSegments)) return;
+      if (!obj.material) return;
+      // Each object stores how its opacity should be derived from the slider value:
+      //   opacityBoost  → always brighter than the body (socket / padding zones)
+      //   minOpacity    → never goes below this value (wireframe lines)
+      //   (neither)     → use slider value directly (body, tenons)
+      let op = v;
+      const boost = obj.userData['opacityBoost'] as number | undefined;
+      const minOp = obj.userData['minOpacity']   as number | undefined;
+      if (boost  !== undefined) op = Math.min(0.85, v + boost);
+      if (minOp  !== undefined) op = Math.max(minOp, v);
+      (obj.material as THREE.MeshStandardMaterial | THREE.LineBasicMaterial).opacity = op;
     });
   }
 
   setWireframe(on: boolean) {
     if (this.wireframe === on) return;
     this.wireframe = on;
+    this.rebuild();
+  }
+
+  setSocketPadding(mm: number) {
+    if (this.socketPadding === mm) return;
+    this.socketPadding = mm;
     this.rebuild();
   }
 
@@ -195,47 +219,52 @@ export class FluteOverlay {
     const taper  = boreLen > 0 ? visibleLen / boreLen : 1;
     const rLower = radiusAtZero * (1 - taper) + radiusAtEnd * taper;
 
+    // Helper: add a mesh with an opacity boost that survives setOpacity() calls
+    const addMesh = (geo: THREE.BufferGeometry, mat: THREE.MeshStandardMaterial,
+                     posX: number, opacityBoost = 0) => {
+      mat.opacity = Math.min(0.85, this.opacity + opacityBoost);
+      const m = new THREE.Mesh(geo, mat);
+      m.position.x = posX;
+      if (opacityBoost) m.userData['opacityBoost'] = opacityBoost;
+      this.group.add(m);
+      return m;
+    };
+
     if (this.wireframe) {
       // ── Wireframe mode: body and tenons as line meshes ─────────────────────
-      const wMat = () => { const m = MAT_WIRE.clone(); m.opacity = this.opacity; return m; };
+      // Lines always stay at least minOpacity regardless of the slider.
+      const WIRE_MIN = 0.7;
+      const addWire = (geo: THREE.BufferGeometry, posX: number) => {
+        const m = MAT_WIRE.clone();
+        m.opacity = Math.max(WIRE_MIN, this.opacity);
+        const ls = new THREE.LineSegments(geo, m);
+        ls.position.x = posX;
+        ls.userData['minOpacity'] = WIRE_MIN;
+        this.group.add(ls);
+      };
 
-      const bodyLS = new THREE.LineSegments(wireframeCylinder(rLower, radiusAtZero, visibleLen), wMat());
-      bodyLS.position.x = lowerEnd;
-      this.group.add(bodyLS);
+      addWire(wireframeCylinder(rLower, radiusAtZero, visibleLen), lowerEnd);
 
       if (tenonAtZero) {
-        const ls = new THREE.LineSegments(
-          wireframeCylinder(tenonAtZero.radius, tenonAtZero.radius, tenonAtZero.length, 24, 2), wMat());
-        ls.position.x = this.xOffset;
-        this.group.add(ls);
+        addWire(wireframeCylinder(tenonAtZero.radius, tenonAtZero.radius,
+                                  tenonAtZero.length, 24, 2), this.xOffset);
       }
-
       if (tenonAtLowerEnd) {
-        const ls = new THREE.LineSegments(
-          wireframeCylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius, tenonAtLowerEnd.length, 24, 2), wMat());
-        ls.position.x = lowerEnd - tenonAtLowerEnd.length;
-        this.group.add(ls);
+        addWire(wireframeCylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius,
+                                  tenonAtLowerEnd.length, 24, 2),
+                lowerEnd - tenonAtLowerEnd.length);
       }
     } else {
       // ── Solid mode ─────────────────────────────────────────────────────────
-      const bodyMat = MAT_BODY.clone(); bodyMat.opacity = this.opacity;
-      const bodyMesh = new THREE.Mesh(cylinder(rLower, radiusAtZero, visibleLen), bodyMat);
-      bodyMesh.position.x = lowerEnd;
-      this.group.add(bodyMesh);
+      addMesh(cylinder(rLower, radiusAtZero, visibleLen), MAT_BODY.clone(), lowerEnd);
 
       if (tenonAtZero) {
-        const tenonMat = MAT_TENON.clone(); tenonMat.opacity = this.opacity;
-        const m = new THREE.Mesh(cylinder(tenonAtZero.radius, tenonAtZero.radius, tenonAtZero.length), tenonMat);
-        m.position.x = this.xOffset;
-        this.group.add(m);
+        addMesh(cylinder(tenonAtZero.radius, tenonAtZero.radius, tenonAtZero.length),
+                MAT_TENON.clone(), this.xOffset);
       }
-
       if (tenonAtLowerEnd) {
-        const tenonMat = MAT_TENON.clone(); tenonMat.opacity = this.opacity;
-        const m = new THREE.Mesh(
-          cylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius, tenonAtLowerEnd.length), tenonMat);
-        m.position.x = lowerEnd - tenonAtLowerEnd.length;
-        this.group.add(m);
+        addMesh(cylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius, tenonAtLowerEnd.length),
+                MAT_TENON.clone(), lowerEnd - tenonAtLowerEnd.length);
       }
     }
 
@@ -252,15 +281,20 @@ export class FluteOverlay {
       this.group.add(disc);
     }
 
-    // ── Socket zone (always rendered as solid amber cylinder) ─────────────────
+    // ── Socket zone (amber) + padding zone (red) ──────────────────────────────
     if (this.socketTenon) {
       const { length: tenonLen, radius: tenonRad } = this.socketTenon;
       const socketStart = this.xOffset - tenonLen;
-      const socketMat = MAT_SOCKET.clone();
-      socketMat.opacity = Math.min(0.7, this.opacity + 0.25);
-      const socketMesh = new THREE.Mesh(cylinder(tenonRad, tenonRad, tenonLen), socketMat);
-      socketMesh.position.x = socketStart;
-      this.group.add(socketMesh);
+
+      // Amber: where the tenon physically sits — no holes allowed here (+0.3 boost)
+      addMesh(cylinder(tenonRad, tenonRad, tenonLen),
+              MAT_SOCKET.clone(), socketStart, 0.3);
+
+      // Red: minimum-clearance zone just beyond the socket (+0.45 boost → clearly visible)
+      if (this.socketPadding > 0) {
+        addMesh(cylinder(tenonRad, tenonRad, this.socketPadding),
+                MAT_PADDING.clone(), socketStart - this.socketPadding, 0.45);
+      }
     }
   }
 

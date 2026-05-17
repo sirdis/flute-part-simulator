@@ -27,9 +27,11 @@ const toolDiamEl   = document.getElementById('tool-diam') as HTMLInputElement;
 const wpDiamTop    = document.getElementById('wp-diam-top') as HTMLInputElement;
 const wpDiamBot    = document.getElementById('wp-diam-bot') as HTMLInputElement;
 const wpLength     = document.getElementById('wp-length') as HTMLInputElement;
-const btnToggleYaml= document.getElementById('btn-toggle-yaml')!;
-const btnWireframe = document.getElementById('btn-wireframe')!;
-const btnToggleGrid= document.getElementById('btn-toggle-grid')!;
+const btnToggleYaml  = document.getElementById('btn-toggle-yaml')!;
+const btnWireframe   = document.getElementById('btn-wireframe')!;
+const socketPaddingEl= document.getElementById('socket-padding') as HTMLInputElement;
+const socketPaddingWrap = document.getElementById('socket-padding-wrap')!;
+const btnToggleGrid  = document.getElementById('btn-toggle-grid')!;
 const btnRotCcw    = document.getElementById('btn-rot-ccw')!;
 const btnRotCw     = document.getElementById('btn-rot-cw')!;
 const vpEl         = document.getElementById('viewport')!;
@@ -292,6 +294,7 @@ function applyOverlay(part: FlutePartGeometry) {
   if (overlayObj) scene3d.scene.remove(overlayObj.group);
   overlayObj = new FluteOverlay(part, loadedXMax || wpParams.xOrigin + wpParams.length, socketTenon);
   if (showWireframe) overlayObj.setWireframe(true);
+  overlayObj.setSocketPadding(parseFloat(socketPaddingEl.value) || 0);
   overlayObj.setOpacity(parseInt(wpOpacityEl.value) / 100);
   scene3d.scene.add(overlayObj.group);
   showYaml = true;
@@ -301,6 +304,7 @@ function applyOverlay(part: FlutePartGeometry) {
   btnToggleYaml.classList.add('active');
   btnWireframe.style.display = '';
   btnWireframe.classList.toggle('active', showWireframe);
+  socketPaddingWrap.style.display = socketTenon ? 'inline-flex' : 'none';
 }
 
 function loadYaml(text: string) {
@@ -415,6 +419,11 @@ btnWireframe.addEventListener('click', () => {
   showWireframe = !showWireframe;
   if (overlayObj) overlayObj.setWireframe(showWireframe);
   btnWireframe.classList.toggle('active', showWireframe);
+});
+
+// Socket padding (min. clearance beyond socket zone)
+socketPaddingEl.addEventListener('change', () => {
+  if (overlayObj) overlayObj.setSocketPadding(parseFloat(socketPaddingEl.value) || 0);
 });
 
 // Keyboard shortcuts
