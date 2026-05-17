@@ -7,7 +7,7 @@ import { ToolPathObject, buildToolPathBuffers } from './renderer/ToolPath';
 import { ToolObject } from './renderer/Tool';
 import { Simulator } from './simulation/Simulator';
 import { GCodePanel } from './ui/GCodePanel';
-import type { WorkpieceParams, FlutePartGeometry, SimulatorState, MachineState } from './types';
+import type { WorkpieceParams, FlutePartGeometry, SimulatorState, MachineState, MotionSegment } from './types';
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
 const canvas       = document.createElement('canvas');
@@ -53,6 +53,7 @@ let showYaml = true;
 let showGrid = true;
 let loadedParts: FlutePartGeometry[] = [];
 let loadedGCodeFilename = '';
+let loadedSegments: MotionSegment[] = [];
 
 const wpParams: WorkpieceParams = {
   diamTop: 29, diamBottom: 27, length: 240, xOrigin: 0,
@@ -158,6 +159,8 @@ function loadGCode(text: string, filename: string) {
   toolObj.setToolDiam(result.toolDiameter);
   toolDiamEl.value = String(result.toolDiameter);
 
+  loadedSegments = result.segments;
+
   // Derive workpiece params from GCode Y range (machine Y = longitudinal axis)
   const [yMin, yMax] = result.yRange;
   loadedXMax = yMax;      // world X of upper (large-radius) end
@@ -218,6 +221,27 @@ function matchPart(parts: FlutePartGeometry[], filename: string): FlutePartGeome
 }
 
 function applyOverlay(part: FlutePartGeometry) {
+  // ── Pull workpiece geometry from YAML ──────────────────────────────────────
+  wpParams.diamTop    = +(part.radiusAtZero * 2).toFixed(3);
+  wpParams.diamBottom = +(part.radiusAtEnd  * 2).toFixed(3);
+  wpParams.length     = part.boreLen;
+  // Bore zero = machine Y=0 = loadedXMax (upper end); lower end at loadedXMax - boreLen
+  wpParams.xOrigin    = loadedXMax - part.boreLen;
+
+  wpObject.setParams(wpParams);
+
+  // Rebuild toolpath so it uses the updated (YAML-derived) radiusFn
+  if (loadedSegments.length > 0) {
+    const radiusFn = (x: number) => wpObject.radiusAt(x);
+    toolPath.load(buildToolPathBuffers(loadedSegments, radiusFn));
+  }
+
+  // Update GUI inputs to reflect the YAML values
+  wpDiamTop.value = wpParams.diamTop.toString();
+  wpDiamBot.value = wpParams.diamBottom.toString();
+  wpLength.value  = wpParams.length.toString();
+
+  // ── Rebuild overlay ────────────────────────────────────────────────────────
   if (overlayObj) scene3d.scene.remove(overlayObj.group);
   overlayObj = new FluteOverlay(part, loadedXMax || wpParams.xOrigin + wpParams.length);
   overlayObj.setOpacity(parseInt(wpOpacityEl.value) / 100);
