@@ -48,6 +48,8 @@
     }
     button:hover { background: #d8d8d8; }
     button.active { background: #0e639c; border-color: #0a5080; color: #fff; }
+    button.btn-danger { color: #a01010; border-color: #c04040; }
+    button.btn-danger:hover { background: #fce8e8; }
     input[type=range] { width: 80px; accent-color: #0e639c; }
     input[type=number] { width: 64px; background: #fff; color: #1a1a1a; border: 1px solid #bbb; border-radius: 3px; padding: 2px 4px; font-family: inherit; font-size: 11px; }
 
@@ -267,6 +269,7 @@
   <div class="group">
     <button id="btn-load-nc">📂 GCode (.nc)</button>
     <button id="btn-load-yaml">📂 YAML (optional)</button>
+    <button id="btn-clear" class="btn-danger" title="GCode und YAML-Overlay entfernen">✕ Leeren</button>
     <input type="file" id="file-nc" accept=".nc,.gcode,.txt" style="display:none">
     <input type="file" id="file-yaml" accept=".yaml,.yml" style="display:none">
   </div>
@@ -299,8 +302,13 @@
   </div>
   <div class="sep"></div>
   <div class="group">
-    <button id="btn-toggle-yaml" title="YAML-Overlay ein/aus" style="display:none">Overlay</button>
-    <button id="btn-wireframe"   title="Drahtgitter / Solid umschalten" style="display:none">Netz</button>
+    <label>Werkstück:</label>
+    <select id="wp-display" title="Werkstück-Darstellung">
+      <option value="cylinder">Zylinder</option>
+      <option value="yaml" disabled>Konus</option>
+      <option value="none" selected>Nichts</option>
+    </select>
+    <button id="btn-wireframe" title="Drahtgitter / Solid umschalten" style="display:none">Netz</button>
     <span id="socket-padding-wrap" style="display:none">
       <label title="Mindestabstand zum Sockel-Zapfen in mm">Puffer:</label>
       <input type="number" id="socket-padding" value="3" step="1" min="0" max="20"
@@ -414,6 +422,7 @@
     <p>
       <span class="swatch" style="background:#2255a0"></span>Fräsbahn (geplant) &nbsp;
       <span class="swatch" style="background:#0a2d6e"></span>Fräsbahn (gefahren) &nbsp;
+      <span class="swatch" style="background:#9b30d0"></span>Alpha-Fräsbahn (A-Rotation) &nbsp;
       <span class="swatch" style="background:#b0bec8"></span>Eilgang
     </p>
     <p>

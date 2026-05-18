@@ -27,7 +27,8 @@ const toolDiamEl   = document.getElementById('tool-diam') as HTMLInputElement;
 const wpDiamTop    = document.getElementById('wp-diam-top') as HTMLInputElement;
 const wpDiamBot    = document.getElementById('wp-diam-bot') as HTMLInputElement;
 const wpLength     = document.getElementById('wp-length') as HTMLInputElement;
-const btnToggleYaml  = document.getElementById('btn-toggle-yaml')!;
+const btnClear       = document.getElementById('btn-clear')!;
+const wpDisplayEl    = document.getElementById('wp-display') as HTMLSelectElement;
 const btnWireframe   = document.getElementById('btn-wireframe')!;
 const socketPaddingEl= document.getElementById('socket-padding') as HTMLInputElement;
 const socketPaddingWrap = document.getElementById('socket-padding-wrap')!;
@@ -59,7 +60,6 @@ document.querySelectorAll('[data-view]').forEach(btn => {
 });
 
 // ── State ───────────────────────────────────────────────────────────────────
-let showYaml = true;
 let showGrid = true;
 let showWireframe = false;
 let loadedParts: FlutePartGeometry[] = [];
@@ -81,6 +81,7 @@ let   loadedXMax = 0;   // GCode X of upper end of flute (for YAML overlay align
 
 scene3d.scene.add(wpObject.group, toolPath.group, toolObj.group, gridObj);
 scene3d.setView('iso');
+applyWpDisplay();   // apply initial "Nichts" default
 
 // ── GCode panel ──────────────────────────────────────────────────────────────
 const gcPanel = new GCodePanel(
@@ -215,6 +216,53 @@ function updatePaddingWarning() {
   }
 }
 
+// ── Werkstück-Darstellung (Zylinder / Konus / Nichts) ────────────────────────
+function applyWpDisplay() {
+  const v = wpDisplayEl.value;
+  wpObject.group.visible = (v === 'cylinder');
+  if (overlayObj) overlayObj.group.visible = (v === 'yaml');
+  btnWireframe.style.display = (v === 'yaml') ? '' : 'none';
+}
+
+// ── Alles leeren ─────────────────────────────────────────────────────────────
+function clearAll() {
+  simulator.pause();
+
+  // Remove YAML overlay
+  if (overlayObj) { scene3d.scene.remove(overlayObj.group); overlayObj = null; }
+  loadedParts = [];
+  loadedGCodeFilename = '';
+  loadedSegments = [];
+  loadedXMax = 0;
+
+  // Empty toolpath buffers
+  toolPath.load({
+    rapidPositions: new Float32Array(0), rapidCount: 0,
+    feedPositions:  new Float32Array(0), feedCount:  0,
+    alphaPositions: new Float32Array(0), alphaCount: 0,
+    segmentToFeedPos: [],
+  });
+
+  // Reset GCode panel
+  gcPanel.load([]);
+  gcFilename.textContent = 'Kein GCode geladen';
+  holeList.innerHTML = '';
+  scrubber.value = '0';
+  scrubber.max = '0';
+  progressInfo.textContent = '—';
+
+  // Reset part selector & warning
+  partSelect.innerHTML = '';
+  partSelect.style.display = 'none';
+  socketPaddingWrap.style.display = 'none';
+  paddingWarning.style.display = 'none';
+
+  // Disable Konus option and reset to Nichts
+  (wpDisplayEl.querySelector('option[value="yaml"]') as HTMLOptionElement).disabled = true;
+  wpDisplayEl.value = 'none';
+  applyWpDisplay();
+}
+
 // ── Load GCode ───────────────────────────────────────────────────────────────
 function loadGCode(text: string, filename: string) {
   loadedGCodeFilename = filename;
@@ -341,12 +389,10 @@ function applyOverlay(part: FlutePartGeometry) {
   overlayObj.setSocketPadding(parseFloat(socketPaddingEl.value) || 0);
   overlayObj.setOpacity(parseInt(wpOpacityEl.value) / 100);
   scene3d.scene.add(overlayObj.group);
-  showYaml = true;
-  overlayObj.group.visible = true;
-  wpObject.group.visible = false;
-  btnToggleYaml.style.display = '';
-  btnToggleYaml.classList.add('active');
-  btnWireframe.style.display = '';
+  // Enable Konus option and switch to it
+  (wpDisplayEl.querySelector('option[value="yaml"]') as HTMLOptionElement).disabled = false;
+  wpDisplayEl.value = 'yaml';
+  applyWpDisplay();
   btnWireframe.classList.toggle('active', showWireframe);
   socketPaddingWrap.style.display = socketTenon ? 'inline-flex' : 'none';
   updatePaddingWarning();
@@ -457,13 +503,11 @@ wpOpacityEl.addEventListener('input', () => {
   if (overlayObj) overlayObj.setOpacity(v);
 });
 
-// Toggle YAML overlay (cylinder follows inversely: hidden when overlay is shown)
-btnToggleYaml.addEventListener('click', () => {
-  showYaml = !showYaml;
-  if (overlayObj) overlayObj.group.visible = showYaml;
-  wpObject.group.visible = !showYaml;
-  btnToggleYaml.classList.toggle('active', showYaml);
-});
+// Werkstück-Darstellung selector
+wpDisplayEl.addEventListener('change', applyWpDisplay);
+
+// Clear button
+btnClear.addEventListener('click', clearAll);
 
 // Toggle wireframe / solid for the YAML overlay
 btnWireframe.addEventListener('click', () => {

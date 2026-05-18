@@ -57,11 +57,37 @@ function tessellateArc(
   return pts;
 }
 
+// Tessellate a linear G01 move that includes an A-axis change.
+// All machine axes interpolate linearly; A rotation produces a curved world path.
+function tessellateAMove(
+  fm: { x: number; y: number; z: number; a: number },
+  tm: { x: number; y: number; z: number; a: number },
+  radiusFn: (y: number) => number
+): THREE.Vector3[] {
+  const dA = tm.a - fm.a;
+  // One step per 5° of rotation, minimum 4
+  const steps = Math.max(4, Math.ceil(Math.abs(dA) / 5));
+  const pts: THREE.Vector3[] = [];
+  for (let s = 0; s <= steps; s++) {
+    const t = s / steps;
+    pts.push(machineToWorld(
+      fm.x + (tm.x - fm.x) * t,
+      fm.y + (tm.y - fm.y) * t,
+      fm.z + (tm.z - fm.z) * t,
+      fm.a + dA * t,
+      radiusFn
+    ));
+  }
+  return pts;
+}
+
 export interface ToolPathBuffers {
   rapidPositions: Float32Array;
   rapidCount: number;
   feedPositions: Float32Array;
   feedCount: number;
+  alphaPositions: Float32Array;   // G01 moves with A-axis change (tessellated)
+  alphaCount: number;
   // Mapping from segment index → position index in feed buffer (for seek)
   segmentToFeedPos: number[];
 }
@@ -70,12 +96,16 @@ export function buildToolPathBuffers(
   segments: MotionSegment[],
   radiusFn: (x: number) => number
 ): ToolPathBuffers {
-  const maxRapid = segments.filter(s => s.isRapid).length * 2 * 3;
-  const maxFeed  = segments.filter(s => !s.isRapid).length * (ARC_STEPS + 2) * 2 * 3;
+  const feedSegs  = segments.filter(s => !s.isRapid);
+  const maxRapid  = segments.filter(s => s.isRapid).length * 2 * 3;
+  const maxFeed   = feedSegs.length * (ARC_STEPS + 2) * 2 * 3;
+  // Alpha moves: up to (360/5 + 1) segments per move × 2 points × 3 floats
+  const maxAlpha  = feedSegs.length * (72 + 2) * 2 * 3;
 
   const rapidPos = new Float32Array(Math.max(6, maxRapid));
   const feedPos  = new Float32Array(Math.max(6, maxFeed));
-  let ri = 0, fi = 0;
+  const alphaPos = new Float32Array(Math.max(6, maxAlpha));
+  let ri = 0, fi = 0, ai = 0;
   const segmentToFeedPos: number[] = [];
 
   const tw = (mx: number, my: number, mz: number, a: number) =>
@@ -92,6 +122,15 @@ export function buildToolPathBuffers(
         rapidPos[ri++] = to.x;   rapidPos[ri++] = to.y;   rapidPos[ri++] = to.z;
       }
       segmentToFeedPos.push(-1);
+    } else if (!arc && Math.abs(tm.a - fm.a) > 0.01) {
+      // G01 with A-axis rotation → tessellate into alpha (rotary) buffer
+      segmentToFeedPos.push(-1);   // not in feed buffer; alpha is always shown fully
+      const pts = tessellateAMove(fm, tm, radiusFn);
+      for (let k = 0; k < pts.length - 1; k++) {
+        if (ai + 6 > alphaPos.length) break;
+        alphaPos[ai++] = pts[k].x;   alphaPos[ai++] = pts[k].y;   alphaPos[ai++] = pts[k].z;
+        alphaPos[ai++] = pts[k+1].x; alphaPos[ai++] = pts[k+1].y; alphaPos[ai++] = pts[k+1].z;
+      }
     } else {
       segmentToFeedPos.push(fi);
       let pts: THREE.Vector3[];
@@ -122,6 +161,8 @@ export function buildToolPathBuffers(
     rapidCount: ri / 3,
     feedPositions: feedPos.slice(0, fi),
     feedCount: fi / 3,
+    alphaPositions: alphaPos.slice(0, ai),
+    alphaCount: ai / 3,
     segmentToFeedPos,
   };
 }
@@ -130,12 +171,14 @@ export function buildToolPathBuffers(
 const MAT_RAPID     = new THREE.LineBasicMaterial({ color: 0xb0bec8, opacity: 0.7, transparent: true });
 const MAT_FEED      = new THREE.LineBasicMaterial({ color: 0x2255a0 });   // dark blue – upcoming path
 const MAT_FEED_PAST = new THREE.LineBasicMaterial({ color: 0x0a2d6e });   // deeper blue – already cut
+const MAT_ALPHA     = new THREE.LineBasicMaterial({ color: 0x9b30d0 });   // purple – A-axis rotary cut
 
 export class ToolPathObject {
   group: THREE.Group;
   private rapidLine: THREE.LineSegments;
   private feedLine: THREE.LineSegments;
   private feedDoneLine: THREE.LineSegments;
+  private alphaLine: THREE.LineSegments;
 
   // The full feed position buffer and its length
   private feedPositions: Float32Array = new Float32Array(0);
@@ -146,7 +189,8 @@ export class ToolPathObject {
     this.rapidLine    = new THREE.LineSegments(new THREE.BufferGeometry(), MAT_RAPID);
     this.feedLine     = new THREE.LineSegments(new THREE.BufferGeometry(), MAT_FEED);
     this.feedDoneLine = new THREE.LineSegments(new THREE.BufferGeometry(), MAT_FEED_PAST);
-    this.group.add(this.rapidLine, this.feedDoneLine, this.feedLine);
+    this.alphaLine    = new THREE.LineSegments(new THREE.BufferGeometry(), MAT_ALPHA);
+    this.group.add(this.rapidLine, this.feedDoneLine, this.feedLine, this.alphaLine);
   }
 
   load(buffers: ToolPathBuffers) {
@@ -157,6 +201,11 @@ export class ToolPathObject {
     rg.setAttribute('position', new THREE.BufferAttribute(buffers.rapidPositions, 3));
     this.rapidLine.geometry.dispose();
     this.rapidLine.geometry = rg;
+
+    const ag = new THREE.BufferGeometry();
+    ag.setAttribute('position', new THREE.BufferAttribute(buffers.alphaPositions, 3));
+    this.alphaLine.geometry.dispose();
+    this.alphaLine.geometry = ag;
 
     this.setProgress(0);
   }
