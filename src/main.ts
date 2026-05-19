@@ -88,7 +88,9 @@ const gcPanel = new GCodePanel(
   document.getElementById('gcode-list-container')!,
   document.getElementById('gcode-list')!,
   (lineIndex: number) => {
-    if (lineIndex >= 0) simulator.seekToLine(lineIndex);
+    // machineStates[i] = state BEFORE line i, so seek to i+1 to show the
+    // result of executing the hovered line.
+    if (lineIndex >= 0) simulator.seekToLine(lineIndex + 1);
   },
   (lineIndex: number) => {
     simulator.seekToLine(lineIndex);

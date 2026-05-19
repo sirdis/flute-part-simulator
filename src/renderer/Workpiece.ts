@@ -311,6 +311,25 @@ export class FluteOverlay {
   }
 }
 
+// Sprite label using a canvas texture – always faces the camera.
+function makeLabel(text: string): THREE.Sprite {
+  const W = 52, H = 20;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+  ctx.font = '13px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(130, 148, 163, 0.92)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, W / 2, H / 2);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  // World-space size: ~5 mm tall, canvas aspect ratio preserved
+  sprite.scale.set(W / H * 5, 5, 1);
+  return sprite;
+}
+
 export function buildGrid(xMin: number, xMax: number): THREE.Object3D {
   const group = new THREE.Group();
 
@@ -357,6 +376,35 @@ export function buildGrid(xMin: number, xMax: number): THREE.Object3D {
     new THREE.Vector3(xMin, 0, 0), new THREE.Vector3(xMax, 0, 0),
   ]);
   group.add(new THREE.Line(axGeo, new THREE.LineBasicMaterial({ color: 0x8090a0 })));
+
+  // ── Labels ──────────────────────────────────────────────────────────────────
+  const lblOff = 5;   // gap between line end and label centre (mm)
+
+  // Longitudinal (X) labels every 50 mm – placed above the XZ grid (z = +ext)
+  // and above the XY grid (y = +ext), covering side and top views.
+  for (let x = Math.floor(xMin / 50) * 50; x <= xMax + 1; x += 50) {
+    if (x < xMin - 1) continue;
+    const s = String(Math.round(x));
+    const lXZ = makeLabel(s);
+    lXZ.position.set(x, 0, ext + lblOff);
+    group.add(lXZ);
+    const lXY = makeLabel(s);
+    lXY.position.set(x, ext + lblOff, 0);
+    group.add(lXY);
+  }
+
+  // Cross labels every 10 mm – placed to the left (xMin side) of both planes.
+  for (let v = -ext; v <= ext; v += step) {
+    const s = String(v);
+    // XY plane (top view): Y-axis values at z=0
+    const lY = makeLabel(s);
+    lY.position.set(xMin - lblOff, v, 0);
+    group.add(lY);
+    // XZ plane (side view): Z-axis values at y=0
+    const lZ = makeLabel(s);
+    lZ.position.set(xMin - lblOff, 0, v);
+    group.add(lZ);
+  }
 
   return group;
 }
