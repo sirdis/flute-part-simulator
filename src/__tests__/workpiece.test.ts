@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { WorkpieceObject } from '../renderer/Workpiece';
+import { WorkpieceObject, computeFluteLayout } from '../renderer/Workpiece';
+import type { FlutePartGeometry } from '../types';
 
 // WorkpieceObject.radiusAt() is a pure interpolation — no WebGL needed.
 
@@ -38,5 +39,49 @@ describe('WorkpieceObject.radiusAt', () => {
     wp.setParams({ diamTop: 40 }); // upper radius now 20
     expect(wp.radiusAt(150)).toBeCloseTo(20);
     expect(wp.radiusAt(50)).toBeCloseTo(10); // lower unchanged
+  });
+});
+
+describe('computeFluteLayout', () => {
+  // rh-part from 0018-flute-holes.yaml — the part where the "e" hole was wrongly
+  // shown sitting on the lower tenon. xOffset = bore zero = G-code Y max = 0.
+  const rhPart: FlutePartGeometry = {
+    name: 'rh-part',
+    boreLen: 113.35,
+    radiusAtZero: 26.54 / 2,
+    radiusAtEnd: 25.06 / 2,
+    tenonAtLowerEnd: { length: 16.81, radius: 18.72 / 2 },
+    holes: [],
+  };
+
+  it('spans the full bore length — tenon is NOT subtracted from the body', () => {
+    const l = computeFluteLayout(rhPart, 0);
+    expect(l.bodyUpperX).toBeCloseTo(0);
+    expect(l.bodyLowerX).toBeCloseTo(-113.35);   // full boreLen, not 113.35 − 16.81
+    expect(l.rLower).toBeCloseTo(25.06 / 2);
+    expect(l.rUpper).toBeCloseTo(26.54 / 2);
+  });
+
+  it('places the lower tenon BEYOND the bore end, below the body', () => {
+    const l = computeFluteLayout(rhPart, 0);
+    expect(l.lowerTenon).toBeDefined();
+    expect(l.lowerTenon!.upperX).toBeCloseTo(-113.35);
+    expect(l.lowerTenon!.lowerX).toBeCloseTo(-113.35 - 16.81);
+  });
+
+  it('keeps the "e" hole (centerY −102.13) on the body, off the tenon', () => {
+    const l = computeFluteLayout(rhPart, 0);
+    const eHoleX = 0 + -102.13;   // xOffset + centerY
+    // On the body …
+    expect(eHoleX).toBeLessThanOrEqual(l.bodyUpperX);
+    expect(eHoleX).toBeGreaterThanOrEqual(l.bodyLowerX);
+    // … and NOT inside the lower-tenon span.
+    expect(eHoleX).toBeGreaterThan(l.lowerTenon!.upperX);
+  });
+
+  it('places the upper tenon above bore zero when present', () => {
+    const l = computeFluteLayout({ ...rhPart, tenonAtZero: { length: 26.21, radius: 23.48 / 2 } }, 0);
+    expect(l.upperTenon!.lowerX).toBeCloseTo(0);
+    expect(l.upperTenon!.upperX).toBeCloseTo(26.21);
   });
 });

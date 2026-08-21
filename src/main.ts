@@ -5,10 +5,11 @@ import { Scene } from './renderer/Scene';
 import { WorkpieceObject, FluteOverlay, buildGrid } from './renderer/Workpiece';
 import { ToolPathObject, buildToolPathBuffers } from './renderer/ToolPath';
 import { ToolObject } from './renderer/Tool';
+import { buildBlowholeEndView } from './renderer/MaterialSim';
 import { Simulator } from './simulation/Simulator';
 import { GCodePanel } from './ui/GCodePanel';
 import { formatNoteName, matchPart } from './utils';
-import type { WorkpieceParams, FlutePartGeometry, SimulatorState, MachineState, MotionSegment } from './types';
+import type { WorkpieceParams, FlutePartGeometry, SimulatorState, MachineState, MotionSegment, BlowholeStock } from './types';
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
 const canvas       = document.createElement('canvas');
@@ -30,6 +31,7 @@ const wpLength     = document.getElementById('wp-length') as HTMLInputElement;
 const btnClear       = document.getElementById('btn-clear')!;
 const wpDisplayEl    = document.getElementById('wp-display') as HTMLSelectElement;
 const btnWireframe   = document.getElementById('btn-wireframe')!;
+const btnComputePart = document.getElementById('btn-compute-part')!;
 const socketPaddingEl= document.getElementById('socket-padding') as HTMLInputElement;
 const socketPaddingWrap = document.getElementById('socket-padding-wrap')!;
 const btnToggleGrid  = document.getElementById('btn-toggle-grid')!;
@@ -65,6 +67,10 @@ let showWireframe = false;
 let loadedParts: FlutePartGeometry[] = [];
 let loadedGCodeFilename = '';
 let loadedSegments: MotionSegment[] = [];
+let loadedToolDiam = 3.175;
+let loadedYRange: [number, number] = [0, 0];
+let blowholeStock: BlowholeStock | null = null;
+let partObj: THREE.Mesh | null = null;
 
 const wpParams: WorkpieceParams = {
   diamTop: 29, diamBottom: 27, length: 240, xOrigin: 0,
@@ -223,6 +229,12 @@ function applyWpDisplay() {
   const v = wpDisplayEl.value;
   wpObject.group.visible = (v === 'cylinder');
   if (overlayObj) overlayObj.group.visible = (v === 'yaml');
+  if (partObj) partObj.visible = (v === 'part');
+  // The finished-part view is an opaque solid — the tool path and tool marker
+  // only clutter it (and read as false "bridges" across the hole), so hide them.
+  const showTool = (v !== 'part');
+  toolPath.group.visible = showTool;
+  toolObj.group.visible = showTool;
   btnWireframe.style.display = (v === 'yaml') ? '' : 'none';
 }
 
@@ -232,6 +244,10 @@ function clearAll() {
 
   // Remove YAML overlay
   if (overlayObj) { scene3d.scene.remove(overlayObj.group); overlayObj = null; }
+  if (partObj) { scene3d.scene.remove(partObj); partObj.geometry.dispose(); partObj = null; }
+  blowholeStock = null;
+  btnComputePart.style.display = 'none';
+  (wpDisplayEl.querySelector('option[value="part"]') as HTMLOptionElement).disabled = true;
   loadedParts = [];
   loadedGCodeFilename = '';
   loadedSegments = [];
@@ -277,6 +293,8 @@ function loadGCode(text: string, filename: string) {
   toolDiamEl.value = String(result.toolDiameter);
 
   loadedSegments = result.segments;
+  loadedToolDiam = result.toolDiameter;
+  loadedYRange = result.yRange;
 
   // Derive workpiece params from GCode Y range (machine Y = longitudinal axis)
   const [yMin, yMax] = result.yRange;
@@ -352,6 +370,45 @@ function loadGCode(text: string, filename: string) {
     partSelect.value = match.name;
     applyOverlay(match);
   }
+
+  updateComputePartAvailability();
+}
+
+// ── Blowhole end-view (material-removal result) ──────────────────────────────
+// The "Endteil" view needs both a blowhole YAML (wall stock) and its G-code
+// (the cuts). Show the compute button once both are present.
+function updateComputePartAvailability() {
+  const ready = !!blowholeStock && loadedSegments.length > 0;
+  btnComputePart.style.display = ready ? '' : 'none';
+  btnComputePart.textContent = 'Endansicht berechnen';
+  (btnComputePart as HTMLButtonElement).disabled = false;
+}
+
+function computePartView() {
+  if (!blowholeStock || loadedSegments.length === 0) return;
+
+  // Yield one frame so the "rechne…" label paints before the (multi-second) sync compute.
+  btnComputePart.textContent = 'rechne…';
+  (btnComputePart as HTMLButtonElement).disabled = true;
+  setTimeout(() => {
+    if (partObj) { scene3d.scene.remove(partObj); partObj.geometry.dispose(); partObj = null; }
+    const { mesh, triangles } = buildBlowholeEndView(
+      blowholeStock!, loadedSegments, loadedToolDiam, loadedYRange);
+    partObj = mesh;
+    scene3d.scene.add(partObj);
+
+    // Frame the (small) blowhole part: focus on its bounding sphere.
+    mesh.geometry.computeBoundingSphere();
+    const bs = mesh.geometry.boundingSphere;
+    if (bs) scene3d.focusOn(bs.center.clone(), bs.radius * 2.6);
+
+    (wpDisplayEl.querySelector('option[value="part"]') as HTMLOptionElement).disabled = false;
+    wpDisplayEl.value = 'part';
+    applyWpDisplay();
+
+    btnComputePart.textContent = `Neu berechnen (${(triangles / 1000).toFixed(0)}k △)`;
+    (btnComputePart as HTMLButtonElement).disabled = false;
+  }, 30);
 }
 
 // ── Load YAML ────────────────────────────────────────────────────────────────
@@ -401,8 +458,25 @@ function applyOverlay(part: FlutePartGeometry) {
 }
 
 function loadYaml(text: string) {
-  const { parts, safetyBetweenHoleAndTenon } = parseYaml(text);
+  const result = parseYaml(text);
+
+  if (result.kind === 'blowhole' && result.blowhole) {
+    // Blowhole YAML: no flute overlay — instead enable the end-view computation.
+    blowholeStock = result.blowhole;
+    loadedParts = [];
+    if (overlayObj) { scene3d.scene.remove(overlayObj.group); overlayObj = null; }
+    partSelect.style.display = 'none';
+    socketPaddingWrap.style.display = 'none';
+    paddingWarning.style.display = 'none';
+    (wpDisplayEl.querySelector('option[value="yaml"]') as HTMLOptionElement).disabled = true;
+    updateComputePartAvailability();
+    return;
+  }
+
+  const { parts, safetyBetweenHoleAndTenon } = result;
   if (parts.length === 0) return;
+  blowholeStock = null;
+  updateComputePartAvailability();
   loadedParts = parts;
 
   // If the YAML specifies a safety value, use it as the padding default
@@ -510,6 +584,9 @@ wpDisplayEl.addEventListener('change', applyWpDisplay);
 
 // Clear button
 btnClear.addEventListener('click', clearAll);
+
+// Compute the blowhole end view (material that remains after milling)
+btnComputePart.addEventListener('click', computePartView);
 
 // Toggle wireframe / solid for the YAML overlay
 btnWireframe.addEventListener('click', () => {

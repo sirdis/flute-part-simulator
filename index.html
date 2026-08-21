@@ -306,9 +306,11 @@
     <select id="wp-display" title="Werkstück-Darstellung">
       <option value="cylinder">Zylinder</option>
       <option value="yaml" disabled>Konus</option>
+      <option value="part" disabled>Endteil</option>
       <option value="none" selected>Nichts</option>
     </select>
     <button id="btn-wireframe" title="Drahtgitter / Solid umschalten" style="display:none">Netz</button>
+    <button id="btn-compute-part" title="Fertiges Teil aus Rohling − Fräserbahn berechnen" style="display:none">Endansicht berechnen</button>
     <span id="socket-padding-wrap" style="display:none">
       <label title="Mindestabstand zum Sockel-Zapfen in mm">Puffer:</label>
       <input type="number" id="socket-padding" value="3" step="1" min="0" max="20"
@@ -411,8 +413,9 @@
 
     <h3>Darstellung</h3>
     <table>
-      <tr><td>Werkstück-Auswahl</td><td>Zylinder · Konus (nach YAML-Laden) · Nichts</td></tr>
+      <tr><td>Werkstück-Auswahl</td><td>Zylinder · Konus (nach YAML-Laden) · Endteil (nach Berechnung) · Nichts</td></tr>
       <tr><td>Netz-Button</td><td>Konus als Drahtgitter oder Solid darstellen (nur bei Konus)</td></tr>
+      <tr><td>Endansicht berechnen</td><td>Fertiges Teil aus Rohling − Fräserbahn (Materialabtrag). Bei Blowhole-YAML + zugehörigem GCode: Rohr-Stutzen mit eingefrästem Anblasloch inkl. Unterschnitt/Durchbruch</td></tr>
       <tr><td>Puffer mm</td><td>Mindestabstand zur Zapfenzone (rot-oranges Band); nur sichtbar wenn Sockel vorhanden</td></tr>
       <tr><td>Gitter-Button</td><td>Hilfslinien ein-/ausblenden</td></tr>
       <tr><td>Deckkraft-Slider</td><td>Transparenz des Konus</td></tr>
@@ -430,6 +433,7 @@
       <span class="swatch" style="background:#c8dff5"></span>YAML-Konus (Solid) &nbsp;
       <span class="swatch" style="background:#2a7fc4"></span>YAML-Konus (Netz) &nbsp;
       <span class="swatch" style="background:#d4cfc8"></span>Einfacher Zylinder &nbsp;
+      <span class="swatch" style="background:#cfd6dd"></span>Endteil (Materialabtrag) &nbsp;
       <span class="swatch" style="background:#e87820"></span>Zapfenzone (Sockel) &nbsp;
       <span class="swatch" style="background:#c83018"></span>Mindestabstand (Puffer)
     </p>

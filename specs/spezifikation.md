@@ -242,7 +242,11 @@ Y=0 ist also die Referenzkante am oberen Ende des Teils. Das YAML-Overlay wird e
 
 ## 9. Abgrenzung (Out of Scope)
 
-- Materialabtrag-Simulation (Boolesche Subtraktion vom Werkstück)
+- Materialabtrag-Simulation (Boolesche Subtraktion vom Werkstück) —
+  **teilweise umgesetzt:** Für Blowhole-YAMLs gibt es eine „Endansicht" (Voxel-
+  Abtrag + Surface-Nets), die den fertig gefrästen Rohr-Stutzen zeigt
+  (`src/renderer/MaterialSim.ts`). Nicht als mitlaufende Verlaufssimulation,
+  sondern als einmalige Endteil-Berechnung. Konus-/Flötenteile noch offen.
 - CAM-Funktionalität (GCode-Erzeugung)
 - Maschinensteuerung / Senden von GCode an eine CNC
 - Kollisionserkennung

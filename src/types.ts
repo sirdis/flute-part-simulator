@@ -74,6 +74,18 @@ export interface FlutePartGeometry {
   holes: FluteHole[];
 }
 
+// A blowhole YAML defines only the local wall (outer/inner tube) + hole size,
+// not where along a headpiece it sits. The axial context comes from the G-code
+// Y-range. Enough to build a short tube stub and carve the blowhole into it.
+export interface BlowholeStock {
+  name: string;
+  outerR: number;   // outer tube radius (outerTubeDiam / 2)
+  innerR: number;   // bore radius (innerTubeDiam / 2) — not milled, pre-existing
+  xDim: number;     // axial extent of the hole (mm) — for framing/margin only
+  yDim: number;     // circumferential extent of the hole (mm)
+  toolDiam?: number;
+}
+
 export interface SimulatorState {
   lineIndex: number;
   machine: MachineState;

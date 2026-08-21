@@ -154,6 +154,55 @@ export class WorkpieceObject {
   }
 }
 
+// Axial layout of a flute part in world coordinates (world X = machine Y).
+// xOffset = world X of the bore-zero end (upper, large-radius end, machine Y=0).
+export interface FluteAxialLayout {
+  bodyLowerX: number;   // world X of the lower body end (= xOffset − boreLen)
+  bodyUpperX: number;   // world X of the upper body end (= xOffset, bore zero)
+  rLower: number;       // outer radius at the lower body end
+  rUpper: number;       // outer radius at the upper body end (bore zero)
+  upperTenon?: { lowerX: number; upperX: number; radius: number };
+  lowerTenon?: { lowerX: number; upperX: number; radius: number };
+}
+
+// Pure geometry: where the body and the two tenons sit along the axis.
+//
+// Holes come from the G-code in bore coordinates: a hole at centerY=y sits at
+// world X = xOffset + y (y ≤ 0), anywhere over the full bore [xOffset−boreLen,
+// xOffset]. The visible body must therefore span the WHOLE boreLen.
+//
+// The tenons are turned sections that extend BEYOND the bore ends — the upper
+// tenon above bore zero (world X > xOffset), the lower tenon below the bore end
+// (world X < xOffset−boreLen). They are NOT sub-ranges of the bore, so they are
+// never subtracted from the body length. (Subtracting them was the old bug that
+// pushed a low-sitting hole — e.g. rh-part's "e" at −102.13 with boreLen 113.35
+// and a 16.81 mm lower tenon — off the body and onto the tenon.)
+export function computeFluteLayout(part: FlutePartGeometry, xOffset: number): FluteAxialLayout {
+  const { boreLen, radiusAtZero, radiusAtEnd, tenonAtZero, tenonAtLowerEnd } = part;
+  const bodyUpperX = xOffset;
+  const bodyLowerX = xOffset - boreLen;
+  const layout: FluteAxialLayout = {
+    bodyLowerX, bodyUpperX,
+    rLower: radiusAtEnd,
+    rUpper: radiusAtZero,
+  };
+  if (tenonAtZero) {
+    layout.upperTenon = {
+      lowerX: bodyUpperX,
+      upperX: bodyUpperX + tenonAtZero.length,
+      radius: tenonAtZero.radius,
+    };
+  }
+  if (tenonAtLowerEnd) {
+    layout.lowerTenon = {
+      lowerX: bodyLowerX - tenonAtLowerEnd.length,
+      upperX: bodyLowerX,
+      radius: tenonAtLowerEnd.radius,
+    };
+  }
+  return layout;
+}
+
 export class FluteOverlay {
   group: THREE.Group;
   private part: FlutePartGeometry;
@@ -203,21 +252,13 @@ export class FluteOverlay {
 
   private rebuild() {
     this.group.clear();
-    const { radiusAtZero, radiusAtEnd, boreLen, tenonAtZero, tenonAtLowerEnd, holes } = this.part;
+    const { radiusAtZero, holes } = this.part;
 
-    // boreLen = visibleLen + ownTenons − upperPartTenon
-    //   tenonAtZero:     this part's upper tenon  → hidden inside upper socket
-    //   tenonAtLowerEnd: this part's lower tenon  → hidden inside lower socket
-    // Both are machined on this part but not visible in the assembled flute,
-    // so both must be subtracted to get the true visible body length.
-    const visibleLen = boreLen
-      - (tenonAtZero?.length    ?? 0)
-      - (tenonAtLowerEnd?.length ?? 0);
-    const lowerEnd = this.xOffset - visibleLen;
-
-    // Radius at the new lower end — interpolate along the full taper
-    const taper  = boreLen > 0 ? visibleLen / boreLen : 1;
-    const rLower = radiusAtZero * (1 - taper) + radiusAtEnd * taper;
+    // Body spans the full bore; tenons sit beyond the bore ends (see computeFluteLayout).
+    const layout = computeFluteLayout(this.part, this.xOffset);
+    const visibleLen = layout.bodyUpperX - layout.bodyLowerX;   // = boreLen
+    const lowerEnd = layout.bodyLowerX;
+    const rLower = layout.rLower;
 
     // Helper: add a mesh with an opacity boost that survives setOpacity() calls
     const addMesh = (geo: THREE.BufferGeometry, mat: THREE.MeshStandardMaterial,
@@ -245,26 +286,23 @@ export class FluteOverlay {
 
       addWire(wireframeCylinder(rLower, radiusAtZero, visibleLen), lowerEnd);
 
-      if (tenonAtZero) {
-        addWire(wireframeCylinder(tenonAtZero.radius, tenonAtZero.radius,
-                                  tenonAtZero.length, 24, 2), this.xOffset);
+      const ut = layout.upperTenon, lt = layout.lowerTenon;
+      if (ut) {
+        addWire(wireframeCylinder(ut.radius, ut.radius, ut.upperX - ut.lowerX, 24, 2), ut.lowerX);
       }
-      if (tenonAtLowerEnd) {
-        addWire(wireframeCylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius,
-                                  tenonAtLowerEnd.length, 24, 2),
-                lowerEnd - tenonAtLowerEnd.length);
+      if (lt) {
+        addWire(wireframeCylinder(lt.radius, lt.radius, lt.upperX - lt.lowerX, 24, 2), lt.lowerX);
       }
     } else {
       // ── Solid mode ─────────────────────────────────────────────────────────
       addMesh(cylinder(rLower, radiusAtZero, visibleLen), MAT_BODY.clone(), lowerEnd);
 
-      if (tenonAtZero) {
-        addMesh(cylinder(tenonAtZero.radius, tenonAtZero.radius, tenonAtZero.length),
-                MAT_TENON.clone(), this.xOffset);
+      const ut = layout.upperTenon, lt = layout.lowerTenon;
+      if (ut) {
+        addMesh(cylinder(ut.radius, ut.radius, ut.upperX - ut.lowerX), MAT_TENON.clone(), ut.lowerX);
       }
-      if (tenonAtLowerEnd) {
-        addMesh(cylinder(tenonAtLowerEnd.radius, tenonAtLowerEnd.radius, tenonAtLowerEnd.length),
-                MAT_TENON.clone(), lowerEnd - tenonAtLowerEnd.length);
+      if (lt) {
+        addMesh(cylinder(lt.radius, lt.radius, lt.upperX - lt.lowerX), MAT_TENON.clone(), lt.lowerX);
       }
     }
 
