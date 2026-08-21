@@ -86,6 +86,21 @@ export interface BlowholeStock {
   toolDiam?: number;
 }
 
+// A full headpiece: a stepped blank (crown ring / cylindrical blank / lower ring)
+// with a central bore. The G-code turns the cone out of the blank, leaves the lip
+// plate as a raised island, and mills the blowhole. Z=0 sits at the blank radius.
+export interface HeadpieceStock {
+  name: string;
+  blankR: number;         // blankDiameter/2 — the Z=0 reference radius
+  boreR: number;          // boreDiameter/2 — pre-drilled, never milled
+  crownR: number;         // crownDiameter/2 — crown ring (at the Y=0 end)
+  lowerR: number;         // lowerDiameter/2 — lower ring (at the Y=−headLength end)
+  headLength: number;
+  crownRingWidth: number; // ring zone at the crown end (t < crownRingWidth)
+  lowerRingWidth: number; // ring zone at the lower end (t > headLength − lowerRingWidth)
+  toolDiam?: number;
+}
+
 export interface SimulatorState {
   lineIndex: number;
   machine: MachineState;

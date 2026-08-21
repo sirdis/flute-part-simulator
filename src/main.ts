@@ -5,11 +5,11 @@ import { Scene } from './renderer/Scene';
 import { WorkpieceObject, FluteOverlay, buildGrid } from './renderer/Workpiece';
 import { ToolPathObject, buildToolPathBuffers } from './renderer/ToolPath';
 import { ToolObject } from './renderer/Tool';
-import { buildBlowholeEndView } from './renderer/MaterialSim';
+import { buildBlowholeEndView, buildHeadpieceEndView } from './renderer/MaterialSim';
 import { Simulator } from './simulation/Simulator';
 import { GCodePanel } from './ui/GCodePanel';
 import { formatNoteName, matchPart } from './utils';
-import type { WorkpieceParams, FlutePartGeometry, SimulatorState, MachineState, MotionSegment, BlowholeStock } from './types';
+import type { WorkpieceParams, FlutePartGeometry, SimulatorState, MachineState, MotionSegment, BlowholeStock, HeadpieceStock } from './types';
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
 const canvas       = document.createElement('canvas');
@@ -70,6 +70,7 @@ let loadedSegments: MotionSegment[] = [];
 let loadedToolDiam = 3.175;
 let loadedYRange: [number, number] = [0, 0];
 let blowholeStock: BlowholeStock | null = null;
+let headpieceStock: HeadpieceStock | null = null;
 let partObj: THREE.Mesh | null = null;
 
 const wpParams: WorkpieceParams = {
@@ -246,6 +247,7 @@ function clearAll() {
   if (overlayObj) { scene3d.scene.remove(overlayObj.group); overlayObj = null; }
   if (partObj) { scene3d.scene.remove(partObj); partObj.geometry.dispose(); partObj = null; }
   blowholeStock = null;
+  headpieceStock = null;
   btnComputePart.style.display = 'none';
   (wpDisplayEl.querySelector('option[value="part"]') as HTMLOptionElement).disabled = true;
   loadedParts = [];
@@ -378,22 +380,23 @@ function loadGCode(text: string, filename: string) {
 // The "Endteil" view needs both a blowhole YAML (wall stock) and its G-code
 // (the cuts). Show the compute button once both are present.
 function updateComputePartAvailability() {
-  const ready = !!blowholeStock && loadedSegments.length > 0;
+  const ready = (!!blowholeStock || !!headpieceStock) && loadedSegments.length > 0;
   btnComputePart.style.display = ready ? '' : 'none';
   btnComputePart.textContent = 'Endansicht berechnen';
   (btnComputePart as HTMLButtonElement).disabled = false;
 }
 
 function computePartView() {
-  if (!blowholeStock || loadedSegments.length === 0) return;
+  if ((!blowholeStock && !headpieceStock) || loadedSegments.length === 0) return;
 
   // Yield one frame so the "rechne…" label paints before the (multi-second) sync compute.
   btnComputePart.textContent = 'rechne…';
   (btnComputePart as HTMLButtonElement).disabled = true;
   setTimeout(() => {
     if (partObj) { scene3d.scene.remove(partObj); partObj.geometry.dispose(); partObj = null; }
-    const { mesh, triangles } = buildBlowholeEndView(
-      blowholeStock!, loadedSegments, loadedToolDiam, loadedYRange);
+    const { mesh, triangles } = headpieceStock
+      ? buildHeadpieceEndView(headpieceStock, loadedSegments, loadedToolDiam, loadedYRange)
+      : buildBlowholeEndView(blowholeStock!, loadedSegments, loadedToolDiam, loadedYRange);
     partObj = mesh;
     scene3d.scene.add(partObj);
 
@@ -460,9 +463,11 @@ function applyOverlay(part: FlutePartGeometry) {
 function loadYaml(text: string) {
   const result = parseYaml(text);
 
-  if (result.kind === 'blowhole' && result.blowhole) {
-    // Blowhole YAML: no flute overlay — instead enable the end-view computation.
-    blowholeStock = result.blowhole;
+  // Blowhole or full headpiece: no flute overlay — enable the end-view computation.
+  if ((result.kind === 'blowhole' && result.blowhole) ||
+      (result.kind === 'headpiece' && result.headpiece)) {
+    blowholeStock = result.blowhole ?? null;
+    headpieceStock = result.headpiece ?? null;
     loadedParts = [];
     if (overlayObj) { scene3d.scene.remove(overlayObj.group); overlayObj = null; }
     partSelect.style.display = 'none';
@@ -476,6 +481,7 @@ function loadYaml(text: string) {
   const { parts, safetyBetweenHoleAndTenon } = result;
   if (parts.length === 0) return;
   blowholeStock = null;
+  headpieceStock = null;
   updateComputePartAvailability();
   loadedParts = parts;
 

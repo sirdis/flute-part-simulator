@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { MotionSegment, BlowholeStock } from '../types';
+import type { MotionSegment, BlowholeStock, HeadpieceStock } from '../types';
 import { machineToWorld } from './ToolPath';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -85,6 +85,12 @@ interface ToolSample { x: number; y: number; z: number; aRad: number; }
 // carve negates A. This is intentionally local — flute holes and the tool-path
 // display keep their (matching) +A convention untouched.
 const A_SIGN = -1;
+// The world frame swaps two axes (worldX = machineY), which flips chirality — so
+// the A-corrected carve comes out mirrored in handedness. Reflect the
+// circumferential axis (worldY) to restore the right-handed orientation that
+// matches reality and the rest of the simulator. (Harmless for the symmetric
+// blowhole stub; visible/needed for the headpiece with its lip plate.)
+const MIRROR_Y = -1;
 
 // Interpolate machine state along a segment and return world tool-tip samples.
 function sampleSegment(
@@ -97,7 +103,7 @@ function sampleSegment(
   const out: ToolSample[] = [];
   const push = (mx: number, my: number, mz: number, aDeg: number) => {
     const p = machineToWorld(mx, my, mz, A_SIGN * aDeg, radiusFn);
-    out.push({ x: p.x, y: p.y, z: p.z, aRad: A_SIGN * aDeg * DEG });
+    out.push({ x: p.x, y: MIRROR_Y * p.y, z: p.z, aRad: MIRROR_Y * A_SIGN * aDeg * DEG });
   };
 
   if (seg.arc) {
@@ -174,8 +180,12 @@ function stampTool(g: VoxelGrid, s: ToolSample, toolR: number, outerR: number) {
         const wx = g.ox + ix * res;
         // Distance from voxel to the capsule axis segment P + t d, t∈[0,L].
         const vx = wx - s.x, vy = wy - s.y, vz = wz - s.z;
-        let t = vy * dy + vz * dz;             // projection (d.x = 0)
-        t = t < 0 ? 0 : (t > L ? L : t);
+        let t = vy * dy + vz * dz;             // projection onto the axis (d.x = 0)
+        // FLAT end mill: nothing is cut below the tip's flat bottom (t < 0).
+        // (A rounded/capsule end would cut toolR too deep — visible as an
+        //  over-turned cone, since the tip radius defines the turned surface.)
+        if (t < 0) continue;
+        if (t > L) t = L;
         const dyy = vy - t * dy, dzz = vz - t * dz;   // (d.x = 0 ⇒ x offset = vx)
         const rem = toolR - Math.sqrt(vx * vx + dyy * dyy + dzz * dzz);
         if (rem > g.field[base + ix]) g.field[base + ix] = rem;
@@ -329,6 +339,72 @@ export function buildBlowholeEndView(
   const g = buildStock(stock, xLo, xHi, res);
   const radiusFn = () => stock.outerR;      // constant radius over the stub
   carve(g, segments, toolDiam / 2, radiusFn, stock.outerR);
+
+  const geo = gridToGeometry(g);
+  const mesh = new THREE.Mesh(geo, MAT_PART);
+  const tri = geo.index ? geo.index.count / 3 : 0;
+  return { mesh, voxels: g.nx * g.ny * g.nz, triangles: tri };
+}
+
+// ── Full headpiece ───────────────────────────────────────────────────────────
+// The stock is the stepped blank: crown ring | cylindrical blank | lower ring,
+// with a through bore. World X = machine Y, so the crown end (t=0) sits at world
+// X = 0 and the piece runs to X = −headLength. The G-code turns the cone out of
+// the blank (Z=0 at blankR), leaves the lip-plate island, and mills the blowhole.
+export function buildHeadpieceStock(
+  stock: HeadpieceStock, xLo: number, xHi: number, res: number
+): VoxelGrid {
+  const rMax = Math.max(stock.blankR, stock.crownR, stock.lowerR);
+  const margin = res * 2;
+  const lo = -rMax - margin, hi = rMax + margin;
+
+  const nx = Math.max(2, Math.ceil((xHi - xLo) / res) + 1);
+  const ny = Math.max(2, Math.ceil((hi - lo) / res) + 1);
+  const nz = ny;
+
+  const g: VoxelGrid = {
+    nx, ny, nz, ox: xLo, oy: lo, oz: lo, res,
+    field: new Float32Array(nx * ny * nz),
+  };
+
+  const coneEnd = stock.headLength - stock.lowerRingWidth;
+  const outerRAt = (wx: number): number => {
+    const t = -wx;                                   // distance from crown end
+    if (t < stock.crownRingWidth) return stock.crownR;
+    if (t > coneEnd) return stock.lowerR;
+    return stock.blankR;                             // blank (turned into the cone)
+  };
+  const rInner = stock.boreR;
+
+  for (let ix = 0; ix < nx; ix++) {
+    const wx = g.ox + ix * res;
+    const rOuter = outerRAt(wx);
+    for (let iz = 0; iz < nz; iz++) {
+      const wz = g.oz + iz * res;
+      for (let iy = 0; iy < ny; iy++) {
+        const wy = g.oy + iy * res;
+        const r = Math.hypot(wy, wz);
+        g.field[gridIndex(g, ix, iy, iz)] = Math.max(r - rOuter, rInner - r);
+      }
+    }
+  }
+  return g;
+}
+
+export function buildHeadpieceEndView(
+  stock: HeadpieceStock,
+  segments: MotionSegment[],
+  toolDiam: number,
+  yRange: [number, number],
+  res = 0.2,
+): BlowholeEndViewResult {
+  const [yMin, yMax] = yRange;
+  const xLo = Math.min(yMin, -stock.headLength) - 4;
+  const xHi = Math.max(yMax, 0) + 4;
+
+  const g = buildHeadpieceStock(stock, xLo, xHi, res);
+  const radiusFn = () => stock.blankR;      // Z=0 sits at the blank radius
+  carve(g, segments, toolDiam / 2, radiusFn, stock.blankR);
 
   const geo = gridToGeometry(g);
   const mesh = new THREE.Mesh(geo, MAT_PART);

@@ -8,6 +8,7 @@ export class Scene {
   controls: OrbitControls;
   private animId: number | null = null;
   private onRender?: () => void;
+  private headlight: THREE.DirectionalLight;
 
   constructor(canvas: HTMLCanvasElement) {
     // Renderer
@@ -25,11 +26,16 @@ export class Scene {
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(100, -180, 60);
 
-    // Lights
-    const amb = new THREE.AmbientLight(0xffffff, 0.4);
-    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+    // Lights. A soft ambient + hemisphere keeps shadowed areas (the inside of
+    // the blowhole / undercut) from going pure black. A fixed key light gives
+    // overall form, and a camera-following "headlight" always illuminates
+    // whatever the user is looking into — essential for inspecting cavities.
+    const amb = new THREE.AmbientLight(0xffffff, 0.35);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xb0b4b8, 0.35);
+    const sun = new THREE.DirectionalLight(0xffffff, 0.55);
     sun.position.set(50, -150, 200);
-    this.scene.add(amb, sun);
+    this.headlight = new THREE.DirectionalLight(0xffffff, 0.85);
+    this.scene.add(amb, hemi, sun, this.headlight, this.headlight.target);
 
     // Orbit controls — must call lookAt BEFORE first update so OrbitControls
     // picks up the correct initial spherical coordinates for Z-up.
@@ -69,10 +75,28 @@ export class Scene {
     const loop = () => {
       this.animId = requestAnimationFrame(loop);
       this.controls.update();
+      this.updateHeadlight();
       if (this.onRender) this.onRender();
       this.renderer.render(this.scene, this.camera);
     };
     loop();
+  }
+
+  // Keep the headlight just over the camera's shoulder (offset up + right so it
+  // is not perfectly flat) and aimed at the orbit target, so cavities the user
+  // looks into stay lit from the viewing side.
+  private updateHeadlight() {
+    const cam = this.camera, tgt = this.controls.target;
+    const fwd = tgt.clone().sub(cam.position);
+    const dist = fwd.length() || 1;
+    fwd.normalize();
+    const right = fwd.clone().cross(cam.up).normalize();
+    const up = right.clone().cross(fwd).normalize();
+    this.headlight.position.copy(cam.position)
+      .addScaledVector(right, dist * 0.25)
+      .addScaledVector(up, dist * 0.35);
+    this.headlight.target.position.copy(tgt);
+    this.headlight.target.updateMatrixWorld();
   }
 
   stop() {

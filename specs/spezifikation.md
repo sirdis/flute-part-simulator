@@ -243,10 +243,11 @@ Y=0 ist also die Referenzkante am oberen Ende des Teils. Das YAML-Overlay wird e
 ## 9. Abgrenzung (Out of Scope)
 
 - Materialabtrag-Simulation (Boolesche Subtraktion vom Werkstück) —
-  **teilweise umgesetzt:** Für Blowhole-YAMLs gibt es eine „Endansicht" (Voxel-
-  Abtrag + Surface-Nets), die den fertig gefrästen Rohr-Stutzen zeigt
-  (`src/renderer/MaterialSim.ts`). Nicht als mitlaufende Verlaufssimulation,
-  sondern als einmalige Endteil-Berechnung. Konus-/Flötenteile noch offen.
+  **umgesetzt für Blowhole und Kopfstück:** Eine „Endansicht" (Voxel-SDF-Abtrag
+  mit Flachfräser-Kapsel + Surface-Nets, `src/renderer/MaterialSim.ts`) zeigt das
+  fertig gefräste Teil: Blowhole-YAML → Rohr-Stutzen mit Anblasloch; Kopfstück-YAML
+  → ganzer Konus mit Ringen, Lippenplatte und Anblasloch. Einmalige Endteil-
+  Berechnung (keine mitlaufende Verlaufssimulation). Flötenteil-Endansicht offen.
 - CAM-Funktionalität (GCode-Erzeugung)
 - Maschinensteuerung / Senden von GCode an eine CNC
 - Kollisionserkennung
