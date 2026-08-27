@@ -316,7 +316,68 @@ const MAT_PART = new THREE.MeshStandardMaterial({
   roughness: 0.75,
   side: THREE.DoubleSide,
   flatShading: false,
+  // Pushed back so the grid overlay lines sit cleanly on the surface (no z-fight).
+  polygonOffset: true,
+  polygonOffsetFactor: 1,
+  polygonOffsetUnits: 1,
 });
+
+const MAT_GRID = new THREE.LineBasicMaterial({
+  color: 0x33506e, transparent: true, opacity: 0.5,
+});
+
+// A reference grid ON the finished surface: contour lines of constant axial
+// position (rings) and constant angle (meridians). They lie exactly on the mesh
+// and deform with it — running down into the blowhole and its undercut, which
+// makes the curved interior far easier to read than flat shading alone.
+export function buildSurfaceGrid(
+  geo: THREE.BufferGeometry, axialStep = 1.5, angleStepDeg = 6
+): THREE.LineSegments {
+  const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+  const idx = geo.getIndex()!;
+  const n = pos.count;
+  const ax = new Float32Array(n), an = new Float32Array(n);   // per-vertex scalars
+  const DEG = 180 / Math.PI;
+  for (let i = 0; i < n; i++) {
+    ax[i] = pos.getX(i);
+    an[i] = Math.atan2(pos.getY(i), pos.getZ(i)) * DEG;
+  }
+
+  const out: number[] = [];
+  const px = [0, 0, 0], py = [0, 0, 0], pz = [0, 0, 0];
+  // Emit the crossing of scalar level L across a triangle's three edges.
+  const cut = (s: Float32Array, L: number) => {
+    const hits: number[] = [];
+    for (let e = 0; e < 3; e++) {
+      const a = e, b = (e + 1) % 3, sa = s[a], sb = s[b];
+      if ((sa < L) === (sb < L)) continue;            // no crossing on this edge
+      const t = (L - sa) / (sb - sa);
+      hits.push(px[a] + (px[b] - px[a]) * t, py[a] + (py[b] - py[a]) * t, pz[a] + (pz[b] - pz[a]) * t);
+    }
+    if (hits.length >= 6) out.push(hits[0], hits[1], hits[2], hits[3], hits[4], hits[5]);
+  };
+  const s3 = new Float32Array(3);
+  const contour = (scalar: Float32Array, step: number, isAngle: boolean, tri: number[]) => {
+    s3[0] = scalar[tri[0]]; s3[1] = scalar[tri[1]]; s3[2] = scalar[tri[2]];
+    const smin = Math.min(s3[0], s3[1], s3[2]), smax = Math.max(s3[0], s3[1], s3[2]);
+    if (isAngle && smax - smin > 180) return;          // triangle straddles the ±180 seam
+    for (let k = Math.ceil(smin / step); k <= Math.floor(smax / step); k++) cut(s3, k * step);
+  };
+
+  const tri = [0, 0, 0];
+  for (let f = 0; f < idx.count; f += 3) {
+    tri[0] = idx.getX(f); tri[1] = idx.getX(f + 1); tri[2] = idx.getX(f + 2);
+    for (let j = 0; j < 3; j++) { px[j] = pos.getX(tri[j]); py[j] = pos.getY(tri[j]); pz[j] = pos.getZ(tri[j]); }
+    contour(ax, axialStep, false, tri);
+    contour(an, angleStepDeg, true, tri);
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
+  const lines = new THREE.LineSegments(g, MAT_GRID);
+  lines.renderOrder = 1;
+  return lines;
+}
 
 export interface BlowholeEndViewResult {
   mesh: THREE.Mesh;

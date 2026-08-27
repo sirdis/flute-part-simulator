@@ -5,7 +5,7 @@ import { Scene } from './renderer/Scene';
 import { WorkpieceObject, FluteOverlay, buildGrid } from './renderer/Workpiece';
 import { ToolPathObject, buildToolPathBuffers } from './renderer/ToolPath';
 import { ToolObject } from './renderer/Tool';
-import { buildBlowholeEndView, buildHeadpieceEndView } from './renderer/MaterialSim';
+import { buildBlowholeEndView, buildHeadpieceEndView, buildSurfaceGrid } from './renderer/MaterialSim';
 import { Simulator } from './simulation/Simulator';
 import { GCodePanel } from './ui/GCodePanel';
 import { formatNoteName, matchPart } from './utils';
@@ -72,6 +72,8 @@ let loadedYRange: [number, number] = [0, 0];
 let blowholeStock: BlowholeStock | null = null;
 let headpieceStock: HeadpieceStock | null = null;
 let partObj: THREE.Mesh | null = null;
+let partGrid: THREE.LineSegments | null = null;
+let showPartGrid = false;
 
 const wpParams: WorkpieceParams = {
   diamTop: 29, diamBottom: 27, length: 240, xOrigin: 0,
@@ -236,7 +238,9 @@ function applyWpDisplay() {
   const showTool = (v !== 'part');
   toolPath.group.visible = showTool;
   toolObj.group.visible = showTool;
-  btnWireframe.style.display = (v === 'yaml') ? '' : 'none';
+  // "Netz" toggles the YAML-overlay wireframe (Konus) or the surface grid (Endteil).
+  btnWireframe.style.display = (v === 'yaml' || v === 'part') ? '' : 'none';
+  btnWireframe.classList.toggle('active', v === 'yaml' ? showWireframe : showPartGrid);
 }
 
 // ── Alles leeren ─────────────────────────────────────────────────────────────
@@ -245,7 +249,7 @@ function clearAll() {
 
   // Remove YAML overlay
   if (overlayObj) { scene3d.scene.remove(overlayObj.group); overlayObj = null; }
-  if (partObj) { scene3d.scene.remove(partObj); partObj.geometry.dispose(); partObj = null; }
+  disposePartObj();
   blowholeStock = null;
   headpieceStock = null;
   btnComputePart.style.display = 'none';
@@ -386,6 +390,11 @@ function updateComputePartAvailability() {
   (btnComputePart as HTMLButtonElement).disabled = false;
 }
 
+function disposePartObj() {
+  if (partGrid) { partGrid.geometry.dispose(); partGrid = null; }
+  if (partObj) { scene3d.scene.remove(partObj); partObj.geometry.dispose(); partObj = null; }
+}
+
 function computePartView() {
   if ((!blowholeStock && !headpieceStock) || loadedSegments.length === 0) return;
 
@@ -393,12 +402,17 @@ function computePartView() {
   btnComputePart.textContent = 'rechne…';
   (btnComputePart as HTMLButtonElement).disabled = true;
   setTimeout(() => {
-    if (partObj) { scene3d.scene.remove(partObj); partObj.geometry.dispose(); partObj = null; }
+    disposePartObj();
     const { mesh, triangles } = headpieceStock
       ? buildHeadpieceEndView(headpieceStock, loadedSegments, loadedToolDiam, loadedYRange)
       : buildBlowholeEndView(blowholeStock!, loadedSegments, loadedToolDiam, loadedYRange);
     partObj = mesh;
     scene3d.scene.add(partObj);
+
+    // Reference grid ON the surface (rings + meridians), toggled by the "Netz" button.
+    partGrid = buildSurfaceGrid(mesh.geometry);
+    partGrid.visible = showPartGrid;
+    partObj.add(partGrid);
 
     // Frame the (small) blowhole part: focus on its bounding sphere.
     mesh.geometry.computeBoundingSphere();
@@ -596,9 +610,15 @@ btnComputePart.addEventListener('click', computePartView);
 
 // Toggle wireframe / solid for the YAML overlay
 btnWireframe.addEventListener('click', () => {
-  showWireframe = !showWireframe;
-  if (overlayObj) overlayObj.setWireframe(showWireframe);
-  btnWireframe.classList.toggle('active', showWireframe);
+  if (wpDisplayEl.value === 'part') {
+    showPartGrid = !showPartGrid;
+    if (partGrid) partGrid.visible = showPartGrid;
+    btnWireframe.classList.toggle('active', showPartGrid);
+  } else {
+    showWireframe = !showWireframe;
+    if (overlayObj) overlayObj.setWireframe(showWireframe);
+    btnWireframe.classList.toggle('active', showWireframe);
+  }
 });
 
 // Socket padding (min. clearance beyond socket zone)
