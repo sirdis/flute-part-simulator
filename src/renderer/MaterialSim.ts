@@ -85,12 +85,16 @@ interface ToolSample { x: number; y: number; z: number; aRad: number; }
 // carve negates A. This is intentionally local — flute holes and the tool-path
 // display keep their (matching) +A convention untouched.
 const A_SIGN = -1;
-// The world frame swaps two axes (worldX = machineY), which flips chirality — so
-// the A-corrected carve comes out mirrored in handedness. Reflect the
-// circumferential axis (worldY) to restore the right-handed orientation that
-// matches reality and the rest of the simulator. (Harmless for the symmetric
-// blowhole stub; visible/needed for the headpiece with its lip plate.)
-const MIRROR_Y = -1;
+// NO circumferential reflection. With A_SIGN handling the undercut, the carve is
+// machineToWorld(−A) = the tool position in the workpiece-fixed frame, which is
+// already correctly handed. An earlier MIRROR_Y = −1 reflected worldY "to match
+// reality", but that put the labium (+A, created at machine +X) onto −worldY —
+// i.e. the MIRRORED side — and made the solid carve disagree with the +A
+// tool-path overlay. Verified against real workpieces (labium lands at +X) and
+// by exact machineToWorld of the labium/backside G-code: +1 ⇒ labium at +worldY
+// (=+X), −1 ⇒ −worldY. Only visible on asymmetric holes (trapezoid / differing
+// undercut angles); symmetric holes hid the mirror. Shared by blowhole & lip plate.
+const MIRROR_Y = 1;
 
 // Interpolate machine state along a segment and return world tool-tip samples.
 function sampleSegment(
